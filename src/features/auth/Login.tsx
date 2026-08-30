@@ -5,18 +5,13 @@ import { Dumbbell, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { loginUser } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
 export function Login() {
   const { t } = useTranslation();
-  const setUser = useAuthStore((s) => s.setUser);
+  const setSession = useAuthStore((s) => s.setSession);
 
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
@@ -33,8 +28,8 @@ export function Login() {
     setError("");
     setLoading(true);
     try {
-      const user = await loginUser(username.trim(), pin);
-      setUser(user);
+      const session = await loginUser(username.trim(), pin);
+      setSession(session);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -51,7 +46,9 @@ export function Login() {
               <Dumbbell className="w-7 h-7 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-cairo">{t("auth.login")}</CardTitle>
+          <CardTitle className="text-2xl font-cairo">
+            {t("auth.login")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,7 +74,9 @@ export function Login() {
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 placeholder="••••"
                 className="font-cairo text-center tracking-widest"
               />
@@ -85,7 +84,11 @@ export function Login() {
             {error && (
               <p className="text-sm text-destructive font-cairo">{error}</p>
             )}
-            <Button type="submit" className="w-full font-cairo" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full font-cairo"
+              disabled={loading}
+            >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {t("auth.login")}
             </Button>

@@ -4,12 +4,7 @@ import { ArrowLeft, Pencil, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -24,14 +19,22 @@ import {
   useMemberSubscriptions,
   useRenewSubscription,
   useUnfreezeSubscription,
-  useSetSubscriptionPaid,
   useCancelSubscription,
 } from "@/hooks/useSubscriptions";
 import { useNavStore } from "@/stores/nav";
-import { memberPhotoUrl, formatDate, fullName, isExpired } from "@/lib/format";
+import {
+  formatDate,
+  formatPrice,
+  fullName,
+  isExpired,
+  memberPhotoUrl,
+  paymentStatus,
+} from "@/lib/format";
 import { SubscribeDialog } from "@/features/subscriptions/SubscribeDialog";
+import { EditMembershipDialog } from "@/features/subscriptions/EditMembershipDialog";
 import { MemberForm } from "./MemberForm";
-import type { SubscriptionWithDetails } from "@/lib/ipc";
+import type { Subscription } from "@/lib/ipc";
+import { useAuthStore } from "@/stores/auth";
 
 const flagLabels: Record<string, string> = {
   medical: "Medical",
@@ -53,26 +56,36 @@ export function MemberProfile() {
   const { data: subs = [] } = useMemberSubscriptions(memberId);
   const renewMut = useRenewSubscription();
   const unfreezeMut = useUnfreezeSubscription();
-  const setPaidMut = useSetSubscriptionPaid();
   const cancelMut = useCancelSubscription();
+  const isManagement = useAuthStore(
+    (state) => state.user?.access_level === "management",
+  );
 
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const [subPage, setSubPage] = useState(0);
-  const [cancelTarget, setCancelTarget] = useState<SubscriptionWithDetails | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [editSubscription, setEditSubscription] = useState<Subscription | null>(
+    null,
+  );
 
   if (isLoading || !member) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground font-cairo">{t("common.loading")}</p>
+        <p className="text-muted-foreground font-cairo">
+          {t("common.loading")}
+        </p>
       </div>
     );
   }
 
   const photoUrl = memberPhotoUrl(member.photo_path);
   const totalPages = Math.ceil(subs.length / SUBS_PER_PAGE);
-  const pagedSubs = subs.slice(subPage * SUBS_PER_PAGE, (subPage + 1) * SUBS_PER_PAGE);
+  const pagedSubs = subs.slice(
+    subPage * SUBS_PER_PAGE,
+    (subPage + 1) * SUBS_PER_PAGE,
+  );
 
   const confirmCancel = () => {
     if (cancelTarget) {
@@ -173,6 +186,28 @@ export function MemberProfile() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
+                  {t("members.whatsappNo")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-cairo">{member.whatsapp_no ?? "—"}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
+                  {t("members.idNumber")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-cairo">{member.id_number ?? "—"}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
                   {t("members.email")}
                 </CardTitle>
               </CardHeader>
@@ -192,6 +227,19 @@ export function MemberProfile() {
               </CardContent>
             </Card>
 
+            <Card className="col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
+                  {t("members.notes")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-cairo whitespace-pre-wrap">
+                  {member.notes ?? "—"}
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
@@ -207,7 +255,10 @@ export function MemberProfile() {
 
         <TabsContent value="subs">
           <div className="space-y-3">
-            <Button onClick={() => setShowSubscribe(true)} className="font-cairo">
+            <Button
+              onClick={() => setShowSubscribe(true)}
+              className="font-cairo"
+            >
               <Plus className="w-4 h-4" />
               {t("subscriptions.subscribe")}
             </Button>
@@ -232,7 +283,10 @@ export function MemberProfile() {
                           {t("subscriptions.endDate")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-                          {t("subscriptions.status")}
+                          {t("subscriptions.payment")}
+                        </th>
+                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                          {t("subscriptions.notes")}
                         </th>
                         <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
                           {t("common.actions")}
@@ -240,101 +294,114 @@ export function MemberProfile() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagedSubs.map((s) => (
-                        <tr key={s.id} className="border-t border-border hover:bg-muted/20 transition-colors">
-                          <td className="p-3 font-cairo">{s.plan_name}</td>
-                          <td className="p-3 font-cairo text-muted-foreground">
-                            {formatDate(s.start_date)}
-                          </td>
-                          <td className="p-3 font-cairo text-muted-foreground">
-                            {formatDate(s.end_date)}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1">
-                              <Badge
-                                variant={
-                                  s.status === "active" && !isExpired(s.end_date)
-                                    ? "success"
-                                    : s.status === "frozen"
-                                      ? "warning"
-                                      : "destructive"
-                                }
-                                className="font-cairo"
-                              >
-                                {isExpired(s.end_date) && s.status === "active"
-                                  ? t("subscriptions.expired")
-                                  : t(`subscriptions.${s.status}`)}
-                              </Badge>
-                              <Badge
-                                variant={s.is_paid ? "default" : "secondary"}
-                                className="font-cairo"
-                              >
-                                {s.is_paid ? t("subscriptions.paid") : t("subscriptions.unpaid")}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center justify-end gap-1 flex-wrap">
-                              {!s.is_paid && (
+                      {pagedSubs.map((s) => {
+                        const payment = paymentStatus(
+                          s.paid_amount_cents,
+                          s.plan_snapshot.price_cents,
+                        );
+                        return (
+                          <tr
+                            key={s.id}
+                            className="border-t border-border hover:bg-muted/20 transition-colors"
+                          >
+                            <td className="p-3 font-cairo">
+                              {s.plan_snapshot.name}
+                            </td>
+                            <td className="p-3 font-cairo text-muted-foreground">
+                              {formatDate(s.start_date)}
+                            </td>
+                            <td className="p-3 font-cairo text-muted-foreground">
+                              {formatDate(s.end_date)}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1">
+                                <Badge
+                                  variant={
+                                    s.status === "active" &&
+                                    !isExpired(s.end_date)
+                                      ? "success"
+                                      : s.status === "frozen"
+                                        ? "warning"
+                                        : "destructive"
+                                  }
+                                  className="font-cairo"
+                                >
+                                  {isExpired(s.end_date) &&
+                                  s.status === "active"
+                                    ? t("subscriptions.expired")
+                                    : t(`subscriptions.${s.status}`)}
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    payment === "paid" ? "default" : "secondary"
+                                  }
+                                  className="font-cairo"
+                                >
+                                  {t(`subscriptions.${payment}`)} ·{" "}
+                                  {formatPrice(s.paid_amount_cents)}
+                                </Badge>
+                              </div>
+                            </td>
+                            <td className="p-3 font-cairo text-muted-foreground max-w-36 truncate">
+                              {s.notes ?? "—"}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center justify-end gap-1 flex-wrap">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => setPaidMut.mutate({ subscriptionId: s.id, isPaid: true })}
+                                  onClick={() => setEditSubscription(s)}
                                   className="font-cairo"
                                 >
-                                  {t("subscriptions.paid")}
+                                  {t("common.edit")}
                                 </Button>
-                              )}
-                              {s.is_paid && s.status !== "cancelled" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setPaidMut.mutate({ subscriptionId: s.id, isPaid: false })}
-                                  className="font-cairo"
-                                >
-                                  {t("subscriptions.unpaid")}
-                                </Button>
-                              )}
-                              {s.status === "frozen" ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => unfreezeMut.mutate(s.id)}
-                                  className="font-cairo"
-                                >
-                                  {t("subscriptions.unfreeze")}
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      renewMut.mutate({
-                                        subscription_id: s.id,
-                                        plan_id: s.plan_id,
-                                        is_paid: true,
-                                      })
-                                    }
-                                    disabled={renewMut.isPending}
-                                    className="font-cairo"
-                                  >
-                                    {t("subscriptions.renew")}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setCancelTarget(s)}
-                                    className="font-cairo text-destructive hover:text-destructive"
-                                  >
-                                    {t("subscriptions.cancel")}
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                {s.status === "frozen" ? (
+                                  isManagement ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => unfreezeMut.mutate(s.id)}
+                                      className="font-cairo"
+                                    >
+                                      {t("subscriptions.unfreeze")}
+                                    </Button>
+                                  ) : null
+                                ) : s.status !== "cancelled" ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        renewMut.mutate({
+                                          subscription_id: s.id,
+                                          plan_id: s.plan_id,
+                                          paid_amount_cents:
+                                            s.plan_snapshot.price_cents,
+                                          notes: null,
+                                        })
+                                      }
+                                      disabled={renewMut.isPending}
+                                      className="font-cairo"
+                                    >
+                                      {t("subscriptions.renew")}
+                                    </Button>
+                                    {isManagement && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCancelTarget(s)}
+                                        className="font-cairo text-destructive hover:text-destructive"
+                                      >
+                                        {t("subscriptions.cancel")}
+                                      </Button>
+                                    )}
+                                  </>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -351,12 +418,15 @@ export function MemberProfile() {
                       {t("common.prev")}
                     </Button>
                     <span className="text-sm text-muted-foreground font-cairo">
-                      {t("common.page")} {subPage + 1} {t("common.of")} {totalPages}
+                      {t("common.page")} {subPage + 1} {t("common.of")}{" "}
+                      {totalPages}
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSubPage((p) => Math.min(totalPages - 1, p + 1))}
+                      onClick={() =>
+                        setSubPage((p) => Math.min(totalPages - 1, p + 1))
+                      }
                       disabled={subPage >= totalPages - 1}
                       className="font-cairo"
                     >
@@ -377,13 +447,19 @@ export function MemberProfile() {
         />
       )}
       {showEdit && (
-        <MemberForm
-          member={member}
-          onClose={() => setShowEdit(false)}
+        <MemberForm member={member} onClose={() => setShowEdit(false)} />
+      )}
+      {editSubscription && (
+        <EditMembershipDialog
+          subscription={editSubscription}
+          onClose={() => setEditSubscription(null)}
         />
       )}
 
-      <Dialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
+      <Dialog
+        open={!!cancelTarget}
+        onOpenChange={(v) => !v && setCancelTarget(null)}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-cairo">
@@ -395,7 +471,8 @@ export function MemberProfile() {
           </DialogHeader>
           {cancelTarget && (
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {cancelTarget.plan_name} — {formatDate(cancelTarget.end_date)}
+              {cancelTarget.plan_snapshot.name} —{" "}
+              {formatDate(cancelTarget.end_date)}
             </p>
           )}
           <DialogFooter>

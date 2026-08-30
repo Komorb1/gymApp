@@ -1,15 +1,18 @@
 import { create } from "zustand";
 
-import type { User } from "@/lib/ipc";
+import type { AuthSession, User } from "@/lib/ipc";
 
 interface AuthState {
   user: User | null;
-  setUser: (user: User | null) => void;
-  logout: () => void;
+  sessionToken: string | null;
+  setSession: (session: AuthSession) => void;
+  clearSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  setUser: (user) => set({ user }),
-  logout: () => set({ user: null }),
+  sessionToken: null,
+  setSession: (session) =>
+    set({ user: session.user, sessionToken: session.session_token }),
+  clearSession: () => set({ user: null, sessionToken: null }),
 }));

@@ -2,16 +2,19 @@ import { z } from "zod";
 
 export const memberSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
-  last_name: z.string().min(1, "Last name is required"),
-  phone: z.string().optional().nullable(),
+  middle_name: z.string().optional().nullable(),
+  last_name: z.string().optional().nullable(),
+  id_number: z.string().optional().nullable(),
+  phone: z.string().min(1, "Phone number is required"),
+  whatsapp_no: z.string().optional().nullable(),
   email: z
     .string()
     .email("Invalid email")
     .optional()
     .nullable()
     .or(z.literal("")),
-  gender: z.enum(["male", "female"]).optional().nullable(),
   birth_date: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;

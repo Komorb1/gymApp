@@ -4,7 +4,7 @@ This file orients AI agents (and new human contributors) to the project. Read it
 
 ## Project
 
-A desktop gym management system for Windows reception desks (developed on Linux). Offline-first, single-branch in v1 (multi-branch sync is parked for v2 and is **not** exposed in the frontend).
+A desktop gym management system for Windows reception desks (developed on Linux). It is offline-first and currently manages one local gym without multi-branch scaffolding.
 
 ## Tech stack
 
@@ -39,7 +39,8 @@ gymApp/
 │   └── src/
 │       ├── main.rs
 │       ├── lib.rs
-│       ├── db.rs            # rusqlite pool + helpers (Phase 1)
+│       ├── db.rs            # rusqlite connection + helpers
+│       ├── session.rs       # session authentication + access checks
 │       └── commands/        # Tauri IPC command handlers
 └── .github/workflows/ci.yml
 ```
@@ -51,14 +52,17 @@ gymApp/
 - **No comments** unless the user asks.
 - **TypeScript strict mode** is on. Don't weaken it.
 - **Foreign keys enforced** — every `rusqlite` connection runs `PRAGMA foreign_keys = ON`.
-- **Soft-delete pattern** — referenced rows (members, plans) use `is_deleted` + `deleted_at`; never `DELETE` them.
+- **Member deletion** — members use `is_deleted` + `deleted_at`; their memberships remain queryable.
+- **Plan deletion** — plans with membership references are deactivated rather than deleted.
 - **ISO 8601 UTC** for all timestamps (`TEXT`), ISO `YYYY-MM-DD` for dates.
 - **Price stored as INTEGER cents** (e.g. `5000` = 50.00); divide by 100 at display layer.
-- **`branch_id` exists on every table** (`NOT NULL DEFAULT 1`) but is hidden from the v1 UI.
+- **Schema changes use new migrations.** Never edit a migration after it has shipped.
+- **Authorization is enforced in Rust.** UI visibility is not a security boundary.
 
 ## Commands
 
 Frontend (run from repo root):
+
 - `pnpm dev` — Vite dev server on port 1420
 - `pnpm tauri dev` — full app (Tauri + Vite), launches the desktop window
 - `pnpm build` — type-check + Vite production build
@@ -68,6 +72,7 @@ Frontend (run from repo root):
 - `pnpm format` — Prettier write
 
 Backend (run from `src-tauri/`):
+
 - `cargo test` — Rust unit + migration tests
 - `cargo fmt --all -- --check` — formatting check
 - `cargo clippy --all-targets -- -D warnings` — lint
@@ -77,6 +82,7 @@ Backend (run from `src-tauri/`):
 ## shadcn/ui
 
 Add components via:
+
 ```
 pnpm dlx shadcn@latest add button card input label dialog badge table tabs
 ```
@@ -89,14 +95,14 @@ pnpm dlx shadcn@latest add button card input label dialog badge table tabs
 - Don't update git config or skip hooks.
 - Conventional commit style is fine but match the repo if it has a history.
 
-## Phase status
+## Implementation status
 
-- [x] Phase 0 — Scaffolding
-- [x] Phase 1 — DB foundation (rusqlite + refinery + 7 tables + members_fts + seed + tests)
-- [x] Phase 2 — Auth & settings (setup wizard, login, settings page, users CRUD)
-- [x] Phase 3 — Members & plans (CRUD, FTS5 search, profile, photo upload, flags)
-- [x] Phase 4 — Subscriptions & expiry (subscribe/renew/freeze, expiry dashboard)
-- [x] Phase 5 — CI/CD & release (GitHub Actions, Tauri updater, v0.1.0 tag ready)
+- [x] Database foundation and versioned migrations
+- [x] Session-backed authentication and management/staff access levels
+- [x] Members, plans, memberships, expiry dashboard, and activity history
+- [x] Arabic/English and RTL/LTR interfaces
+- [ ] Production updater configuration and signing
+- [ ] End-to-end Windows installer verification
 
 ## Updater keys (before first release)
 

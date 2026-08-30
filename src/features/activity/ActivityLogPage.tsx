@@ -5,8 +5,15 @@ import { ScrollText, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { formatDate } from "@/lib/format";
+import type { ActivityLog } from "@/lib/ipc";
 
 const actionColors: Record<
   string,
@@ -25,11 +32,11 @@ const actionColors: Record<
   "subscription.freeze": "warning",
   "subscription.unfreeze": "default",
   "subscription.cancel": "destructive",
-  "subscription.set_paid": "default",
+  "subscription.update": "default",
+  "auth.login": "secondary",
   "user.create": "success",
   "user.update": "default",
   "settings.update": "secondary",
-  "backup.create": "secondary",
 };
 
 const LOGS_PER_PAGE = 10;
@@ -42,6 +49,7 @@ export function ActivityLogPage() {
   const [userFilter, setUserFilter] = useState<string>("all");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
   const users = useMemo(() => {
     const set = new Set<string>();
@@ -61,7 +69,8 @@ export function ActivityLogPage() {
       if (actionFilter !== "all" && l.action !== actionFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        const hay = `${l.username} ${l.action} ${l.target_type ?? ""} ${l.details ?? ""}`.toLowerCase();
+        const hay =
+          `${l.username} ${l.action} ${l.target_type ?? ""} ${l.before_details ?? ""} ${l.after_details ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -69,12 +78,25 @@ export function ActivityLogPage() {
   }, [logs, userFilter, actionFilter, search]);
 
   const totalPages = Math.ceil(filtered.length / LOGS_PER_PAGE);
-  const pagedLogs = filtered.slice(page * LOGS_PER_PAGE, (page + 1) * LOGS_PER_PAGE);
+  const pagedLogs = filtered.slice(
+    page * LOGS_PER_PAGE,
+    (page + 1) * LOGS_PER_PAGE,
+  );
 
   const resetPage = () => setPage(0);
 
-  const formatAction = (action: string) => t(`activity.actions.${action}`, { defaultValue: action });
-  const formatTarget = (target: string | null) => target ? t(`activity.targets.${target}`, { defaultValue: target }) : "—";
+  const formatAction = (action: string) =>
+    t(`activity.actions.${action}`, { defaultValue: action });
+  const formatTarget = (target: string | null) =>
+    target ? t(`activity.targets.${target}`, { defaultValue: target }) : "—";
+  const formatDetails = (details: string | null) => {
+    if (!details) return "—";
+    try {
+      return JSON.stringify(JSON.parse(details), null, 2);
+    } catch {
+      return details;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -111,7 +133,9 @@ export function ActivityLogPage() {
             }}
             className="h-11 rounded-md border border-input bg-background px-3 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-foreground"
           >
-            <option value="all">{t("common.user")}: {t("common.all")}</option>
+            <option value="all">
+              {t("common.user")}: {t("common.all")}
+            </option>
             {users.map((u) => (
               <option key={u} value={u}>
                 {u}
@@ -126,7 +150,9 @@ export function ActivityLogPage() {
             }}
             className="h-11 rounded-md border border-input bg-background px-3 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-foreground"
           >
-            <option value="all">{t("common.action")}: {t("common.all")}</option>
+            <option value="all">
+              {t("common.action")}: {t("common.all")}
+            </option>
             {actions.map((a) => (
               <option key={a} value={a}>
                 {formatAction(a)}
@@ -138,7 +164,9 @@ export function ActivityLogPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <ScrollText className="w-12 h-12 text-muted-foreground mb-3" />
-            <p className="text-muted-foreground font-cairo">{t("activity.noResults")}</p>
+            <p className="text-muted-foreground font-cairo">
+              {t("activity.noResults")}
+            </p>
           </div>
         ) : (
           <>
@@ -158,6 +186,9 @@ export function ActivityLogPage() {
                     <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                       {t("common.target")}
                     </th>
+                    <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
+                      {t("activity.changeDetails")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,7 +200,9 @@ export function ActivityLogPage() {
                       <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                         {formatDate(log.created_at)}
                       </td>
-                      <td className="p-3 font-cairo font-medium">{log.username}</td>
+                      <td className="p-3 font-cairo font-medium">
+                        {log.username}
+                      </td>
                       <td className="p-3">
                         <Badge
                           variant={actionColors[log.action] ?? "secondary"}
@@ -180,7 +213,17 @@ export function ActivityLogPage() {
                       </td>
                       <td className="p-3 font-cairo text-muted-foreground">
                         {formatTarget(log.target_type)}
-                        {log.details ? ` · ${log.details}` : ""}
+                        {log.target_id ? ` #${log.target_id}` : ""}
+                      </td>
+                      <td className="p-3 text-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLog(log)}
+                          className="font-cairo"
+                        >
+                          {t("common.view")}
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -205,7 +248,9 @@ export function ActivityLogPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  onClick={() =>
+                    setPage((p) => Math.min(totalPages - 1, p + 1))
+                  }
                   disabled={page >= totalPages - 1}
                   className="font-cairo"
                 >
@@ -216,6 +261,37 @@ export function ActivityLogPage() {
           </>
         )}
       </div>
+
+      <Dialog
+        open={!!selectedLog}
+        onOpenChange={(open) => !open && setSelectedLog(null)}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-cairo">
+              {selectedLog ? formatAction(selectedLog.action) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 min-w-0">
+              <h3 className="font-semibold font-cairo">
+                {t("activity.before")}
+              </h3>
+              <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words">
+                {formatDetails(selectedLog?.before_details ?? null)}
+              </pre>
+            </div>
+            <div className="space-y-2 min-w-0">
+              <h3 className="font-semibold font-cairo">
+                {t("activity.after")}
+              </h3>
+              <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words">
+                {formatDetails(selectedLog?.after_details ?? null)}
+              </pre>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

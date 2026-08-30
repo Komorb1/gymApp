@@ -31,9 +31,21 @@ export function formatDate(iso: string | null): string {
 
 export function fullName(member: {
   first_name: string;
+  middle_name?: string | null;
   last_name: string;
 }): string {
-  return `${member.first_name} ${member.last_name}`;
+  return [member.first_name, member.middle_name, member.last_name]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function paymentStatus(
+  paidAmountCents: number,
+  totalPriceCents: number,
+): "paid" | "partial" | "unpaid" {
+  if (paidAmountCents <= 0) return "unpaid";
+  if (paidAmountCents >= totalPriceCents) return "paid";
+  return "partial";
 }
 
 export function daysUntil(isoDate: string | null): number | null {

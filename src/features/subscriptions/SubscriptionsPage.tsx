@@ -18,37 +18,49 @@ import {
   useSubscriptions,
   useRenewSubscription,
   useUnfreezeSubscription,
-  useSetSubscriptionPaid,
   useCancelSubscription,
 } from "@/hooks/useSubscriptions";
 import { useMembers } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { isExpired, isExpiringSoon, memberPhotoUrl, formatDate, fullName } from "@/lib/format";
-import type { SubscriptionWithDetails, Member } from "@/lib/ipc";
+import {
+  formatDate,
+  formatPrice,
+  fullName,
+  isExpired,
+  isExpiringSoon,
+  memberPhotoUrl,
+  paymentStatus,
+} from "@/lib/format";
+import type { Member, Subscription } from "@/lib/ipc";
 import { SubscribeDialog } from "./SubscribeDialog";
 import { FreezeDialog } from "./FreezeDialog";
+import { EditMembershipDialog } from "./EditMembershipDialog";
+import { useAuthStore } from "@/stores/auth";
 
 export function SubscriptionsPage() {
   const { t } = useTranslation();
   const { data: subs = [], isLoading } = useSubscriptions();
   const renewMut = useRenewSubscription();
   const unfreezeMut = useUnfreezeSubscription();
-  const setPaidMut = useSetSubscriptionPaid();
   const cancelMut = useCancelSubscription();
+  const isManagement = useAuthStore(
+    (state) => state.user?.access_level === "management",
+  );
 
   const [subscribeMember, setSubscribeMember] = useState<Member | null>(null);
-  const [freezeTarget, setFreezeTarget] = useState<SubscriptionWithDetails | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<SubscriptionWithDetails | null>(null);
+  const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [editTarget, setEditTarget] = useState<Subscription | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
   const debounced = useDebouncedValue(pickerSearch, 300);
   const { data: pickerMembers = [] } = useMembers(debounced);
 
   const buckets = useMemo(() => {
-    const active: SubscriptionWithDetails[] = [];
-    const expiring: SubscriptionWithDetails[] = [];
-    const expired: SubscriptionWithDetails[] = [];
-    const frozen: SubscriptionWithDetails[] = [];
+    const active: Subscription[] = [];
+    const expiring: Subscription[] = [];
+    const expired: Subscription[] = [];
+    const frozen: Subscription[] = [];
     for (const s of subs) {
       if (s.status === "cancelled") continue;
       if (s.status === "frozen") {
@@ -65,11 +77,12 @@ export function SubscriptionsPage() {
     return { active, expiring, expired, frozen };
   }, [subs]);
 
-  const handleRenew = (s: SubscriptionWithDetails) => {
+  const handleRenew = (s: Subscription) => {
     renewMut.mutate({
       subscription_id: s.id,
       plan_id: s.plan_id,
-      is_paid: true,
+      paid_amount_cents: s.plan_snapshot.price_cents,
+      notes: null,
     });
   };
 
@@ -80,113 +93,143 @@ export function SubscriptionsPage() {
     }
   };
 
-  const renderRow = (s: SubscriptionWithDetails) => (
-    <tr key={s.id} className="border-t border-border hover:bg-muted/20 transition-colors">
-      <td className="p-3">
-        <div className="flex items-center gap-3">
-          {memberPhotoUrl(s.member_photo_path) ? (
-            <img
-              src={memberPhotoUrl(s.member_photo_path)!}
-              alt=""
-              className="w-8 h-8 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-              {s.member_name[0]?.toUpperCase()}
+  const renderRow = (s: Subscription) => {
+    const payment = paymentStatus(
+      s.paid_amount_cents,
+      s.plan_snapshot.price_cents,
+    );
+    return (
+      <tr
+        key={s.id}
+        className="border-t border-border hover:bg-muted/20 transition-colors"
+      >
+        <td className="p-3">
+          <div className="flex items-center gap-3">
+            {memberPhotoUrl(s.member_snapshot.photo_path) ? (
+              <img
+                src={memberPhotoUrl(s.member_snapshot.photo_path)!}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                {s.member_snapshot.first_name[0]?.toUpperCase()}
+              </div>
+            )}
+            <div>
+              <span className="font-cairo font-medium">
+                {fullName(s.member_snapshot)}
+              </span>
+              <p className="text-xs text-muted-foreground font-cairo">
+                {s.member_snapshot.phone}
+                {s.member_snapshot.whatsapp_no
+                  ? ` · ${s.member_snapshot.whatsapp_no}`
+                  : ""}
+                {s.member_snapshot.id_number
+                  ? ` · ${s.member_snapshot.id_number}`
+                  : ""}
+              </p>
             </div>
-          )}
-          <span className="font-cairo font-medium">{s.member_name}</span>
-        </div>
-      </td>
-      <td className="p-3 font-cairo text-muted-foreground">{s.plan_name}</td>
-      <td className="p-3 font-cairo text-muted-foreground">{formatDate(s.end_date)}</td>
-      <td className="p-3">
-        <div className="flex items-center gap-1">
-          <Badge
-            variant={
-              s.status === "active" && !isExpired(s.end_date)
-                ? "success"
-                : s.status === "frozen"
-                  ? "warning"
-                  : "destructive"
-            }
-            className="font-cairo"
-          >
-            {isExpired(s.end_date) && s.status === "active"
-              ? t("subscriptions.expired")
-              : t(`subscriptions.${s.status}`)}
-          </Badge>
-          <Badge variant={s.is_paid ? "default" : "secondary"} className="font-cairo">
-            {s.is_paid ? t("subscriptions.paid") : t("subscriptions.unpaid")}
-          </Badge>
-        </div>
-      </td>
-      <td className="p-3">
-        <div className="flex items-center justify-end gap-1 flex-wrap">
-          {!s.is_paid && (
+          </div>
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground">
+          {s.plan_snapshot.name}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground">
+          {formatDate(s.start_date)}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground">
+          {formatDate(s.end_date)}
+        </td>
+        <td className="p-3">
+          <div className="flex items-center gap-1">
+            <Badge
+              variant={
+                s.status === "active" && !isExpired(s.end_date)
+                  ? "success"
+                  : s.status === "frozen"
+                    ? "warning"
+                    : "destructive"
+              }
+              className="font-cairo"
+            >
+              {isExpired(s.end_date) && s.status === "active"
+                ? t("subscriptions.expired")
+                : t(`subscriptions.${s.status}`)}
+            </Badge>
+            <Badge
+              variant={payment === "paid" ? "default" : "secondary"}
+              className="font-cairo"
+            >
+              {t(`subscriptions.${payment}`)} ·{" "}
+              {formatPrice(s.paid_amount_cents)}
+            </Badge>
+          </div>
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground max-w-40 truncate">
+          {s.notes ?? "—"}
+        </td>
+        <td className="p-3">
+          <div className="flex items-center justify-end gap-1 flex-wrap">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPaidMut.mutate({ subscriptionId: s.id, isPaid: true })}
+              onClick={() => setEditTarget(s)}
               className="font-cairo"
             >
-              {t("subscriptions.paid")}
+              {t("common.edit")}
             </Button>
-          )}
-          {s.is_paid && s.status !== "cancelled" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPaidMut.mutate({ subscriptionId: s.id, isPaid: false })}
-              className="font-cairo"
-            >
-              {t("subscriptions.unpaid")}
-            </Button>
-          )}
-          {s.status === "frozen" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => unfreezeMut.mutate(s.id)}
-              className="font-cairo"
-            >
-              {t("subscriptions.unfreeze")}
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFreezeTarget(s)}
-                className="font-cairo"
-              >
-                {t("subscriptions.freeze")}
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => handleRenew(s)}
-                disabled={renewMut.isPending}
-                className="font-cairo"
-              >
-                {t("subscriptions.renew")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCancelTarget(s)}
-                className="font-cairo text-destructive hover:text-destructive"
-              >
-                {t("subscriptions.cancel")}
-              </Button>
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+            {s.status === "frozen" ? (
+              isManagement ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => unfreezeMut.mutate(s.id)}
+                  className="font-cairo"
+                >
+                  {t("subscriptions.unfreeze")}
+                </Button>
+              ) : null
+            ) : s.status !== "cancelled" ? (
+              <>
+                {isManagement && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFreezeTarget(s)}
+                    className="font-cairo"
+                  >
+                    {t("subscriptions.freeze")}
+                  </Button>
+                )}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleRenew(s)}
+                  disabled={renewMut.isPending}
+                  className="font-cairo"
+                >
+                  {t("subscriptions.renew")}
+                </Button>
+                {isManagement && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCancelTarget(s)}
+                    className="font-cairo text-destructive hover:text-destructive"
+                  >
+                    {t("subscriptions.cancel")}
+                  </Button>
+                )}
+              </>
+            ) : null}
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
-  const Table = ({ rows }: { rows: SubscriptionWithDetails[] }) => (
+  const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="rounded-lg border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
@@ -198,10 +241,16 @@ export function SubscriptionsPage() {
               {t("subscriptions.plan")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.startDate")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.endDate")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.status")}
+              {t("subscriptions.payment")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.notes")}
             </th>
             <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
               {t("common.actions")}
@@ -211,7 +260,10 @@ export function SubscriptionsPage() {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={5} className="p-6 text-center text-muted-foreground font-cairo">
+              <td
+                colSpan={7}
+                className="p-6 text-center text-muted-foreground font-cairo"
+              >
                 {t("subscriptions.noActiveSubs")}
               </td>
             </tr>
@@ -226,7 +278,9 @@ export function SubscriptionsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold font-cairo">{t("subscriptions.title")}</h2>
+        <h2 className="text-lg font-semibold font-cairo">
+          {t("subscriptions.title")}
+        </h2>
         <Button
           onClick={() => {
             setPickerSearch("");
@@ -289,8 +343,17 @@ export function SubscriptionsPage() {
           onClose={() => setFreezeTarget(null)}
         />
       )}
+      {editTarget && (
+        <EditMembershipDialog
+          subscription={editTarget}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
 
-      <Dialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
+      <Dialog
+        open={!!cancelTarget}
+        onOpenChange={(v) => !v && setCancelTarget(null)}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-cairo">
@@ -302,7 +365,8 @@ export function SubscriptionsPage() {
           </DialogHeader>
           {cancelTarget && (
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {cancelTarget.member_name} — {cancelTarget.plan_name}
+              {fullName(cancelTarget.member_snapshot)} —{" "}
+              {cancelTarget.plan_snapshot.name}
             </p>
           )}
           <DialogFooter>

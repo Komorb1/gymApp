@@ -13,10 +13,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useFreezeSubscription } from "@/hooks/useSubscriptions";
-import type { SubscriptionWithDetails } from "@/lib/ipc";
+import type { Subscription } from "@/lib/ipc";
+import { fullName } from "@/lib/format";
 
 interface FreezeDialogProps {
-  subscription: SubscriptionWithDetails;
+  subscription: Subscription;
   onClose: () => void;
 }
 
@@ -61,12 +62,14 @@ export function FreezeDialog({ subscription, onClose }: FreezeDialogProps) {
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.member")}</Label>
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {subscription.member_name}
+              {fullName(subscription.member_snapshot)}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label className="font-cairo">{t("subscriptions.freezePrompt")}</Label>
+            <Label className="font-cairo">
+              {t("subscriptions.freezePrompt")}
+            </Label>
             <Input
               type="date"
               value={frozenUntil}

@@ -16,61 +16,68 @@ import {
 import { useAuthStore } from "@/stores/auth";
 
 export function useMembers(search: string) {
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useQuery({
-    queryKey: ["members", search],
-    queryFn: () => (search.trim() ? searchMembers(search) : listMembers()),
+    queryKey: ["members", search, sessionToken],
+    queryFn: () =>
+      search.trim()
+        ? searchMembers(sessionToken, search)
+        : listMembers(sessionToken),
+    enabled: !!sessionToken,
   });
 }
 
 export function useMember(id: number | null) {
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useQuery({
-    queryKey: ["member", id],
-    queryFn: () => getMember(id!),
-    enabled: id !== null,
+    queryKey: ["member", id, sessionToken],
+    queryFn: () => getMember(sessionToken, id!),
+    enabled: id !== null && !!sessionToken,
   });
 }
 
 export function useMemberFlags(memberId: number | null) {
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useQuery({
-    queryKey: ["member-flags", memberId],
-    queryFn: () => getMemberFlags(memberId!),
-    enabled: memberId !== null,
+    queryKey: ["member-flags", memberId, sessionToken],
+    queryFn: () => getMemberFlags(sessionToken, memberId!),
+    enabled: memberId !== null && !!sessionToken,
   });
 }
 
 export function useCreateMember() {
   const qc = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
-    mutationFn: (input: CreateMemberInput) => createMember(actorId, input),
+    mutationFn: (input: CreateMemberInput) => createMember(sessionToken, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["members"] }),
   });
 }
 
 export function useUpdateMember() {
   const qc = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
-    mutationFn: (input: UpdateMemberInput) => updateMember(actorId, input),
+    mutationFn: (input: UpdateMemberInput) => updateMember(sessionToken, input),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["members"] });
-      qc.setQueryData(["member", data.id], data);
+      qc.invalidateQueries({ queryKey: ["member", data.id] });
     },
   });
 }
 
 export function useDeleteMember() {
   const qc = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
-    mutationFn: (id: number) => deleteMember(actorId, id),
+    mutationFn: (id: number) => deleteMember(sessionToken, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["members"] }),
   });
 }
 
 export function useSetMemberFlag() {
   const qc = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
     mutationFn: ({
       memberId,
@@ -80,7 +87,7 @@ export function useSetMemberFlag() {
       memberId: number;
       flag: string;
       note?: string | null;
-    }) => setMemberFlag(actorId, memberId, flag, note),
+    }) => setMemberFlag(sessionToken, memberId, flag, note),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ["member-flags", vars.memberId] }),
   });
@@ -88,18 +95,24 @@ export function useSetMemberFlag() {
 
 export function useRemoveMemberFlag() {
   const qc = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
     mutationFn: ({ memberId, flag }: { memberId: number; flag: string }) =>
-      removeMemberFlag(actorId, memberId, flag),
+      removeMemberFlag(sessionToken, memberId, flag),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ["member-flags", vars.memberId] }),
   });
 }
 
 export function useSavePhoto() {
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
   return useMutation({
-    mutationFn: ({ sourcePath, memberId }: { sourcePath: string; memberId: number }) =>
-      savePhoto(sourcePath, memberId),
+    mutationFn: ({
+      sourcePath,
+      memberId,
+    }: {
+      sourcePath: string;
+      memberId: number;
+    }) => savePhoto(sessionToken, sourcePath, memberId),
   });
 }

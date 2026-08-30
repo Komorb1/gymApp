@@ -18,6 +18,7 @@ import { useNavStore } from "@/stores/nav";
 import { memberPhotoUrl, formatDate, fullName } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 import { MemberForm } from "./MemberForm";
+import { useAuthStore } from "@/stores/auth";
 
 export function MembersPage() {
   const { t } = useTranslation();
@@ -26,6 +27,9 @@ export function MembersPage() {
   const debouncedSearch = useDebouncedValue(search, 300);
   const { data: members = [], isLoading } = useMembers(debouncedSearch);
   const deleteMut = useDeleteMember();
+  const isManagement = useAuthStore(
+    (state) => state.user?.access_level === "management",
+  );
 
   const [showForm, setShowForm] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
@@ -82,16 +86,15 @@ export function MembersPage() {
       {isLoading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="h-14 rounded-lg bg-muted animate-pulse"
-            />
+            <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />
           ))}
         </div>
       ) : members.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <User className="w-12 h-12 text-muted-foreground mb-3" />
-          <p className="text-muted-foreground font-cairo">{t("members.empty")}</p>
+          <p className="text-muted-foreground font-cairo">
+            {t("members.empty")}
+          </p>
           <Button
             variant="outline"
             className="mt-3 font-cairo"
@@ -170,14 +173,16 @@ export function MembersPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => openDelete(e, m)}
-                        aria-label={t("common.delete")}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {isManagement && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => openDelete(e, m)}
+                          aria-label={t("common.delete")}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -197,10 +202,15 @@ export function MembersPage() {
         />
       )}
 
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+      <Dialog
+        open={isManagement && !!deleteTarget}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-cairo">{t("common.delete")}</DialogTitle>
+            <DialogTitle className="font-cairo">
+              {t("common.delete")}
+            </DialogTitle>
             <DialogDescription className="font-cairo">
               {deleteTarget && fullName(deleteTarget)}?
             </DialogDescription>
