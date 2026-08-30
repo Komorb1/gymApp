@@ -180,6 +180,52 @@ mod tests {
     }
 
     #[test]
+    fn schema_tracks_owner_and_subscription_discount() {
+        let conn = test_db();
+        let user_columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(users)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let subscription_columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(subscriptions)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+
+        assert!(user_columns.contains(&"is_owner".to_string()));
+        assert!(subscription_columns.contains(&"discount_percent".to_string()));
+    }
+
+    #[test]
+    fn discount_percentage_constraint_is_enforced() {
+        let conn = test_db();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '123', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        let result = conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, discount_percent
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 101)",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn fts_search_finds_member_by_name() {
         let conn = test_db();
         conn.execute(

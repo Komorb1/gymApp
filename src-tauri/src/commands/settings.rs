@@ -4,7 +4,7 @@ use tauri::State;
 use crate::db::{log_activity, Db};
 use crate::error::{AppError, AppResult};
 use crate::models::{deserialize_nullable, Settings};
-use crate::session::{require_management, Sessions};
+use crate::session::{require_management, require_user, Sessions};
 
 fn row_to_settings(row: &rusqlite::Row) -> rusqlite::Result<Settings> {
     Ok(Settings {
@@ -38,6 +38,10 @@ pub struct UpdateSettingsInput {
     pub theme: Option<String>,
 }
 
+fn has_gym_information_change(input: &UpdateSettingsInput) -> bool {
+    input.gym_name.is_some() || input.gym_address.is_some() || input.gym_phone.is_some()
+}
+
 #[tauri::command]
 pub async fn update_settings(
     db: State<'_, Db>,
@@ -47,16 +51,18 @@ pub async fn update_settings(
 ) -> AppResult<Settings> {
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
-        let actor_id = require_management(&transaction, &sessions, &session_token)?;
+        let actor_id = require_user(&transaction, &sessions, &session_token)?;
+        let changes_gym_information = has_gym_information_change(&input);
+        if changes_gym_information {
+            require_management(&transaction, &sessions, &session_token)?;
+        }
         let before = settings(&transaction)?;
         let gym_name = input.gym_name.unwrap_or_else(|| before.gym_name.clone());
         let gym_address = input
             .gym_address
             .unwrap_or_else(|| before.gym_address.clone());
         let gym_phone = input.gym_phone.unwrap_or_else(|| before.gym_phone.clone());
-        let language = input
-            .language
-            .unwrap_or_else(|| before.language.clone());
+        let language = input.language.unwrap_or_else(|| before.language.clone());
         let theme = input.theme.unwrap_or_else(|| before.theme.clone());
         if !matches!(language.as_str(), "ar" | "en") {
             return Err(AppError::Validation("Invalid language".into()));
@@ -76,17 +82,27 @@ pub async fn update_settings(
             rusqlite::params![gym_name, gym_address, gym_phone, language, theme],
         )?;
         let after = settings(&transaction)?;
-        let before_json = serde_json::to_string(&before)?;
-        let after_json = serde_json::to_string(&after)?;
-        log_activity(
-            &transaction,
-            actor_id,
-            "settings.update",
-            Some("settings"),
-            Some(1),
-            Some(&before_json),
-            Some(&after_json),
-        )?;
+        if changes_gym_information {
+            let before_json = serde_json::to_string(&serde_json::json!({
+                "gym_name": before.gym_name,
+                "gym_address": before.gym_address,
+                "gym_phone": before.gym_phone,
+            }))?;
+            let after_json = serde_json::to_string(&serde_json::json!({
+                "gym_name": after.gym_name,
+                "gym_address": after.gym_address,
+                "gym_phone": after.gym_phone,
+            }))?;
+            log_activity(
+                &transaction,
+                actor_id,
+                "settings.update",
+                Some("settings"),
+                Some(1),
+                Some(&before_json),
+                Some(&after_json),
+            )?;
+        }
         transaction.commit()?;
         Ok(after)
     })
@@ -94,17 +110,26 @@ pub async fn update_settings(
 
 #[cfg(test)]
 mod tests {
-    use super::UpdateSettingsInput;
+    use super::{has_gym_information_change, UpdateSettingsInput};
 
     #[test]
     fn settings_patch_distinguishes_missing_and_null_fields() {
-        let partial: UpdateSettingsInput =
-            serde_json::from_str(r#"{"language":"en"}"#).unwrap();
-        let cleared: UpdateSettingsInput =
-            serde_json::from_str(r#"{"gym_phone":null}"#).unwrap();
+        let partial: UpdateSettingsInput = serde_json::from_str(r#"{"language":"en"}"#).unwrap();
+        let cleared: UpdateSettingsInput = serde_json::from_str(r#"{"gym_phone":null}"#).unwrap();
 
         assert_eq!(partial.gym_name, None);
         assert_eq!(partial.language.as_deref(), Some("en"));
         assert_eq!(cleared.gym_phone, Some(None));
+    }
+
+    #[test]
+    fn appearance_changes_are_not_audited_as_settings_changes() {
+        let appearance: UpdateSettingsInput =
+            serde_json::from_str(r#"{"language":"ar","theme":"light"}"#).unwrap();
+        let gym_info: UpdateSettingsInput =
+            serde_json::from_str(r#"{"gym_name":"New name"}"#).unwrap();
+
+        assert!(!has_gym_information_change(&appearance));
+        assert!(has_gym_information_change(&gym_info));
     }
 }

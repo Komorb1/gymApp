@@ -124,7 +124,7 @@ export function DashboardPage() {
                       renewMut.mutate({
                         subscription_id: s.id,
                         plan_id: s.plan_id,
-                        paid_amount_cents: s.plan_snapshot.price_cents,
+                        discount_percent: s.discount_percent,
                         notes: null,
                       })
                     }

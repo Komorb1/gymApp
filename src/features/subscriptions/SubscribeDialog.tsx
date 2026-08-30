@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
-import { formatPrice, priceToCents } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 
 interface SubscribeDialogProps {
@@ -32,14 +32,13 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
   const [startDate, setStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [paidAmount, setPaidAmount] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("0");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (activePlans.length > 0 && planId === null) {
       setPlanId(activePlans[0].id);
-      setPaidAmount(formatPrice(activePlans[0].price_cents));
     }
   }, [activePlans, planId]);
 
@@ -55,7 +54,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         member_id: member.id,
         plan_id: planId,
         start_date: startDate || null,
-        paid_amount_cents: priceToCents(paidAmount),
+        discount_percent: Number(discountPercent),
         notes: notes || null,
       },
       {
@@ -93,10 +92,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => {
-                      setPlanId(p.id);
-                      setPaidAmount(formatPrice(p.price_cents));
-                    }}
+                    onClick={() => setPlanId(p.id)}
                     className={`w-full flex items-center justify-between p-2 rounded-md border transition-colors font-cairo ${
                       planId === p.id
                         ? "border-primary bg-primary/5"
@@ -125,16 +121,30 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">
-              {t("subscriptions.paidAmount")}
+              {t("subscriptions.discountPercent")}
             </Label>
             <Input
               type="number"
               min={0}
-              step="0.01"
-              value={paidAmount}
-              onChange={(event) => setPaidAmount(event.target.value)}
+              max={100}
+              step="1"
+              value={discountPercent}
+              onChange={(event) => setDiscountPercent(event.target.value)}
               className="font-cairo"
             />
+            {planId && (
+              <p className="text-sm text-muted-foreground font-cairo">
+                {t("subscriptions.finalPrice")}:{" "}
+                {formatPrice(
+                  Math.round(
+                    ((activePlans.find((plan) => plan.id === planId)
+                      ?.price_cents ?? 0) *
+                      (100 - Number(discountPercent || 0))) /
+                      100,
+                  ),
+                )}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

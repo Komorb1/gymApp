@@ -47,6 +47,12 @@ pub async fn list_activity_logs(
         let mut statement = conn.prepare(
             "SELECT a.*, u.username FROM activity_logs a
              LEFT JOIN users u ON u.id = a.user_id
+             WHERE NOT (
+                 a.action = 'settings.update'
+                 AND COALESCE(json_extract(a.before_details, '$.gym_name'), '') = COALESCE(json_extract(a.after_details, '$.gym_name'), '')
+                 AND COALESCE(json_extract(a.before_details, '$.gym_address'), '') = COALESCE(json_extract(a.after_details, '$.gym_address'), '')
+                 AND COALESCE(json_extract(a.before_details, '$.gym_phone'), '') = COALESCE(json_extract(a.after_details, '$.gym_phone'), '')
+             )
              ORDER BY a.created_at DESC LIMIT ?1",
         )?;
         let logs = statement

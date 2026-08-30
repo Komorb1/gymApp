@@ -4,8 +4,8 @@ use tauri::State;
 use crate::db::{log_activity, Db};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    CreateSubscriptionInput, DashboardStats, MemberSnapshot, PlanSnapshot,
-    RenewSubscriptionInput, Subscription, UpdateSubscriptionInput,
+    CreateSubscriptionInput, DashboardStats, MemberSnapshot, PlanSnapshot, RenewSubscriptionInput,
+    Subscription, UpdateSubscriptionInput,
 };
 use crate::session::{require_management, require_user, Sessions};
 
@@ -14,7 +14,7 @@ fn decode_json<T: serde::de::DeserializeOwned>(value: String) -> rusqlite::Resul
         .map_err(|error| rusqlite::Error::FromSqlConversionFailure(0, Type::Text, Box::new(error)))
 }
 
-fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subscription> {
+pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subscription> {
     Ok(Subscription {
         id: row.get("id")?,
         member_id: row.get("member_id")?,
@@ -27,6 +27,7 @@ fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subscription> {
         frozen_at: row.get("frozen_at")?,
         frozen_until: row.get("frozen_until")?,
         paid_amount_cents: row.get("paid_amount_cents")?,
+        discount_percent: row.get("discount_percent")?,
         notes: row.get("notes")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -128,6 +129,32 @@ fn clean_notes(notes: Option<String>) -> Option<String> {
     })
 }
 
+fn discounted_price_cents(price_cents: i64, discount_percent: i64) -> AppResult<i64> {
+    if !(0..=100).contains(&discount_percent) {
+        return Err(AppError::Validation(
+            "Discount percentage must be between 0 and 100".into(),
+        ));
+    }
+    Ok((price_cents * (100 - discount_percent) + 50) / 100)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::discounted_price_cents;
+
+    #[test]
+    fn discount_percentage_calculates_rounded_final_price() {
+        assert_eq!(discounted_price_cents(3_255, 15).unwrap(), 2_767);
+        assert_eq!(discounted_price_cents(5_000, 100).unwrap(), 0);
+    }
+
+    #[test]
+    fn discount_percentage_must_be_between_zero_and_one_hundred() {
+        assert!(discounted_price_cents(5_000, -1).is_err());
+        assert!(discounted_price_cents(5_000, 101).is_err());
+    }
+}
+
 #[tauri::command]
 pub async fn list_subscriptions(
     db: State<'_, Db>,
@@ -153,9 +180,8 @@ pub async fn list_member_subscriptions(
 ) -> AppResult<Vec<Subscription>> {
     db.with_conn(|conn| {
         require_user(conn, &sessions, &session_token)?;
-        let mut statement = conn.prepare(
-            "SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC",
-        )?;
+        let mut statement = conn
+            .prepare("SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC")?;
         let subscriptions = statement
             .query_map(rusqlite::params![member_id], row_to_subscription)?
             .collect::<Result<Vec<_>, _>>()?;
@@ -170,16 +196,12 @@ pub async fn create_subscription(
     session_token: String,
     input: CreateSubscriptionInput,
 ) -> AppResult<Subscription> {
-    if input.paid_amount_cents < 0 {
-        return Err(AppError::Validation(
-            "Paid amount cannot be negative".into(),
-        ));
-    }
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
         let member = member_snapshot(&transaction, input.member_id)?;
         let plan = plan_snapshot(&transaction, input.plan_id, true)?;
+        let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         let start_date = match input.start_date {
             Some(value) => parse_date(&value, "start date")?,
             None => chrono::Utc::now().date_naive(),
@@ -190,8 +212,8 @@ pub async fn create_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, paid_amount_cents, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                start_date, end_date, paid_amount_cents, discount_percent, notes
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -199,7 +221,8 @@ pub async fn create_subscription(
                 plan_json,
                 start_date.format("%Y-%m-%d").to_string(),
                 end_date,
-                input.paid_amount_cents,
+                final_price_cents,
+                input.discount_percent,
                 clean_notes(input.notes),
             ],
         )?;
@@ -227,11 +250,6 @@ pub async fn renew_subscription(
     session_token: String,
     input: RenewSubscriptionInput,
 ) -> AppResult<Subscription> {
-    if input.paid_amount_cents < 0 {
-        return Err(AppError::Validation(
-            "Paid amount cannot be negative".into(),
-        ));
-    }
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
@@ -239,6 +257,7 @@ pub async fn renew_subscription(
         let member = member_snapshot(&transaction, before.member_id)?;
         let plan_id = input.plan_id.unwrap_or(before.plan_id);
         let plan = plan_snapshot(&transaction, plan_id, true)?;
+        let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         let today = chrono::Utc::now().date_naive();
         let previous_end = parse_date(&before.end_date, "membership end date")?;
         let start_date = previous_end.max(today);
@@ -248,8 +267,8 @@ pub async fn renew_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, paid_amount_cents, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                start_date, end_date, paid_amount_cents, discount_percent, notes
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             rusqlite::params![
                 before.member_id,
                 plan_id,
@@ -257,7 +276,8 @@ pub async fn renew_subscription(
                 plan_json,
                 start_date.format("%Y-%m-%d").to_string(),
                 end_date,
-                input.paid_amount_cents,
+                final_price_cents,
+                input.discount_percent,
                 clean_notes(input.notes),
             ],
         )?;
@@ -401,23 +421,22 @@ pub async fn update_subscription(
     session_token: String,
     input: UpdateSubscriptionInput,
 ) -> AppResult<Subscription> {
-    if input.paid_amount_cents < 0 {
-        return Err(AppError::Validation(
-            "Paid amount cannot be negative".into(),
-        ));
-    }
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
         let before = subscription_by_id(&transaction, input.subscription_id)?;
+        let final_price_cents =
+            discounted_price_cents(before.plan_snapshot.price_cents, input.discount_percent)?;
         transaction.execute(
             "UPDATE subscriptions SET
                 paid_amount_cents = ?1,
-                notes = ?2,
+                discount_percent = ?2,
+                notes = ?3,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?3",
+             WHERE id = ?4",
             rusqlite::params![
-                input.paid_amount_cents,
+                final_price_cents,
+                input.discount_percent,
                 clean_notes(input.notes),
                 input.subscription_id,
             ],

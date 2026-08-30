@@ -6,6 +6,7 @@ export type User = {
   id: number;
   username: string;
   access_level: AccessLevel;
+  is_owner: boolean;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -67,7 +68,6 @@ export type CreateMemberInput = {
   last_name?: string | null;
   id_number?: string | null;
   phone: string;
-  whatsapp_no?: string | null;
   email?: string | null;
   birth_date?: string | null;
   notes?: string | null;
@@ -144,6 +144,7 @@ export type Subscription = {
   frozen_at: string | null;
   frozen_until: string | null;
   paid_amount_cents: number;
+  discount_percent: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -153,21 +154,26 @@ export type CreateSubscriptionInput = {
   member_id: number;
   plan_id: number;
   start_date?: string | null;
-  paid_amount_cents: number;
+  discount_percent: number;
   notes?: string | null;
 };
 
 export type RenewSubscriptionInput = {
   subscription_id: number;
   plan_id?: number | null;
-  paid_amount_cents: number;
+  discount_percent: number;
   notes?: string | null;
 };
 
 export type UpdateSubscriptionInput = {
   subscription_id: number;
-  paid_amount_cents: number;
+  discount_percent: number;
   notes?: string | null;
+};
+
+export type MemberReport = {
+  member: Member;
+  subscriptions: Subscription[];
 };
 
 export type DashboardStats = {
@@ -287,6 +293,12 @@ export function updateMember(
 
 export function deleteMember(sessionToken: string, id: number): Promise<void> {
   return invoke<void>("delete_member", { sessionToken, id });
+}
+
+export function listMemberReports(
+  sessionToken: string,
+): Promise<MemberReport[]> {
+  return invoke<MemberReport[]>("list_member_reports", { sessionToken });
 }
 
 export function getMemberFlags(

@@ -8,6 +8,7 @@ import {
   Dumbbell,
   LogOut,
   ScrollText,
+  FileText,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ const navItems: { page: Page; icon: React.ElementType; key: string }[] = [
   { page: "subscriptions", icon: CalendarDays, key: "nav.subscriptions" },
   { page: "plans", icon: ListChecks, key: "nav.plans" },
   { page: "activity", icon: ScrollText, key: "nav.activity" },
+  { page: "reports", icon: FileText, key: "nav.reports" },
   { page: "settings", icon: SettingsIcon, key: "nav.settings" },
 ];
 
@@ -51,10 +53,7 @@ export function Sidebar() {
 
       <nav className="flex-1 p-2 space-y-1">
         {navItems
-          .filter(
-            ({ page: itemPage }) =>
-              isManagement || !["plans", "settings"].includes(itemPage),
-          )
+          .filter(({ page: itemPage }) => isManagement || itemPage !== "plans")
           .map(({ page: p, icon: Icon, key }) => {
             const isActive =
               page === p || (page === "member-profile" && p === "members");

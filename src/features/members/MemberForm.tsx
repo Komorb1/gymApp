@@ -56,7 +56,6 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
         last_name: member.last_name,
         id_number: member.id_number ?? "",
         phone: member.phone,
-        whatsapp_no: member.whatsapp_no ?? "",
         email: member.email ?? "",
         birth_date: member.birth_date ?? "",
         notes: member.notes ?? "",
@@ -68,7 +67,6 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
         last_name: "",
         id_number: "",
         phone: "",
-        whatsapp_no: "",
         email: "",
         birth_date: "",
         notes: "",
@@ -106,7 +104,6 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
           last_name: data.last_name,
           id_number: data.id_number || null,
           phone: data.phone,
-          whatsapp_no: data.whatsapp_no || null,
           email: data.email || null,
           birth_date: data.birth_date || null,
           notes: data.notes || null,
@@ -118,7 +115,6 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
           last_name: data.last_name,
           id_number: data.id_number || null,
           phone: data.phone,
-          whatsapp_no: data.whatsapp_no || null,
           email: data.email || null,
           birth_date: data.birth_date || null,
           notes: data.notes || null,
@@ -204,20 +200,17 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="font-cairo">{t("members.phone")}</Label>
-              <Input {...register("phone")} className="font-cairo" />
-              {errors.phone && (
-                <p className="text-xs text-destructive font-cairo">
-                  {errors.phone.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label className="font-cairo">{t("members.whatsappNo")}</Label>
-              <Input {...register("whatsapp_no")} className="font-cairo" />
-            </div>
+          <div className="space-y-2">
+            <Label className="font-cairo">{t("members.phone")}</Label>
+            <Input {...register("phone")} className="font-cairo" />
+            <p className="text-xs text-muted-foreground font-cairo">
+              {t("members.phoneIsWhatsapp")}
+            </p>
+            {errors.phone && (
+              <p className="text-xs text-destructive font-cairo">
+                {errors.phone.message}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

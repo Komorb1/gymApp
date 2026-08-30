@@ -7,6 +7,7 @@
     "members": "الأعضاء",
     "subscriptions": "الاشتراكات",
     "plans": "الباقات",
+    "reports": "التقارير",
     "settings": "الإعدادات",
     "activity": "سجل النشاط"
   },
@@ -32,7 +33,8 @@
     "page": "صفحة",
     "of": "من",
     "all": "الكل",
-    "view": "عرض"
+    "view": "عرض",
+    "saved": "تم الحفظ"
   },
   "activity": {
     "title": "سجل النشاط",
@@ -93,7 +95,8 @@
     "middleName": "الاسم الأوسط",
     "lastName": "اسم العائلة",
     "idNumber": "رقم الهوية",
-    "phone": "رقم الهاتف",
+    "phone": "رقم الهاتف (واتساب)",
+    "phoneIsWhatsapp": "سيُستخدم هذا الرقم للتواصل عبر واتساب.",
     "whatsappNo": "رقم واتساب",
     "email": "البريد الإلكتروني",
     "birthDate": "تاريخ الميلاد",
@@ -104,7 +107,8 @@
     "active": "نشط",
     "inactive": "غير نشط",
     "empty": "لا يوجد أعضاء بعد",
-    "emptyCta": "أضف أول عضو"
+    "emptyCta": "أضف أول عضو",
+    "cannotDeleteSubscribed": "لا يمكن حذف عضو لديه سجل اشتراك. سيبقى العضو محفوظًا في التقارير."
   },
   "plans": {
     "title": "الباقات",
@@ -136,6 +140,9 @@
     "unpaid": "غير مدفوع",
     "payment": "الدفع",
     "paidAmount": "المبلغ المدفوع",
+    "discount": "الخصم",
+    "discountPercent": "نسبة الخصم (%)",
+    "finalPrice": "السعر بعد الخصم",
     "notes": "ملاحظات الاشتراك",
     "editMembership": "تعديل الاشتراك",
     "member": "العضو",
@@ -169,7 +176,18 @@
     "accessLevel": "مستوى الوصول",
     "management": "الإدارة",
     "staff": "موظف",
-    "you": "أنت"
+    "you": "أنت",
+    "owner": "المدير الأساسي"
+  },
+  "reports": {
+    "allMembers": "جميع الأعضاء المسجلين",
+    "allSubscriptions": "إجمالي الاشتراكات",
+    "totalDiscounts": "إجمالي الخصومات",
+    "searchPlaceholder": "ابحث بالاسم أو رقم واتساب أو الهوية أو الباقة...",
+    "empty": "لا توجد بيانات لعرضها",
+    "deletedMember": "عضو محذوف",
+    "subscriptionsCount": "اشتراك",
+    "noSubscriptions": "لا توجد اشتراكات لهذا العضو"
   },
   "dashboard": {
     "title": "الرئيسية",

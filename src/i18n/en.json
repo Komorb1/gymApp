@@ -7,6 +7,7 @@
     "members": "Members",
     "subscriptions": "Subscriptions",
     "plans": "Plans",
+    "reports": "Reports",
     "settings": "Settings",
     "activity": "Activity Log"
   },
@@ -32,7 +33,8 @@
     "page": "Page",
     "of": "of",
     "all": "All",
-    "view": "View"
+    "view": "View",
+    "saved": "Saved"
   },
   "activity": {
     "title": "Activity Log",
@@ -93,7 +95,8 @@
     "middleName": "Middle Name",
     "lastName": "Last Name",
     "idNumber": "ID Number",
-    "phone": "Phone No.",
+    "phone": "Phone (WhatsApp)",
+    "phoneIsWhatsapp": "This number is used for WhatsApp contact.",
     "whatsappNo": "WhatsApp No.",
     "email": "Email",
     "birthDate": "Date of Birth",
@@ -104,7 +107,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "empty": "No members yet",
-    "emptyCta": "Add your first member"
+    "emptyCta": "Add your first member",
+    "cannotDeleteSubscribed": "A member with subscription history cannot be deleted. The member remains available in reports."
   },
   "plans": {
     "title": "Plans",
@@ -136,6 +140,9 @@
     "unpaid": "Unpaid",
     "payment": "Payment",
     "paidAmount": "Paid Amount",
+    "discount": "Discount",
+    "discountPercent": "Discount percentage (%)",
+    "finalPrice": "Price after discount",
     "notes": "Membership Notes",
     "editMembership": "Edit Membership",
     "member": "Member",
@@ -169,7 +176,18 @@
     "accessLevel": "Access Level",
     "management": "Management",
     "staff": "Staff",
-    "you": "You"
+    "you": "You",
+    "owner": "Primary admin"
+  },
+  "reports": {
+    "allMembers": "All registered members",
+    "allSubscriptions": "Total subscriptions",
+    "totalDiscounts": "Total discounts",
+    "searchPlaceholder": "Search by name, WhatsApp, ID, or plan...",
+    "empty": "No report data found",
+    "deletedMember": "Deleted member",
+    "subscriptionsCount": "subscriptions",
+    "noSubscriptions": "This member has no subscriptions"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -58,11 +58,28 @@ fn validate_preferences(language: &str, theme: &str) -> AppResult<()> {
     Ok(())
 }
 
+fn validate_owner_update(
+    is_owner: bool,
+    access_level: Option<&str>,
+    is_active: Option<bool>,
+) -> AppResult<()> {
+    if is_owner
+        && (matches!(access_level, Some(level) if level != "management")
+            || is_active == Some(false))
+    {
+        return Err(AppError::Conflict(
+            "The original administrator role and active status cannot be changed".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn row_to_user(row: &rusqlite::Row) -> rusqlite::Result<User> {
     Ok(User {
         id: row.get("id")?,
         username: row.get("username")?,
         access_level: row.get("access_level")?,
+        is_owner: row.get::<_, i64>("is_owner")? != 0,
         is_active: row.get::<_, i64>("is_active")? != 0,
         last_login_at: row.get("last_login_at")?,
         created_at: row.get("created_at")?,
@@ -113,7 +130,7 @@ pub async fn setup_first_user(
         }
         let pin_hash = hash_pin(&pin)?;
         transaction.execute(
-            "INSERT INTO users (username, pin_hash, access_level) VALUES (?1, ?2, 'management')",
+            "INSERT INTO users (username, pin_hash, access_level, is_owner) VALUES (?1, ?2, 'management', 1)",
             rusqlite::params![username.trim(), pin_hash],
         )?;
         let user_id = transaction.last_insert_rowid();
@@ -301,6 +318,11 @@ pub async fn update_user(
         let transaction = conn.transaction()?;
         let actor_id = require_management(&transaction, &sessions, &session_token)?;
         let before = user_by_id(&transaction, input.id)?;
+        validate_owner_update(
+            before.is_owner,
+            input.access_level.as_deref(),
+            input.is_active,
+        )?;
         let removes_management = input.is_active == Some(false)
             || matches!(input.access_level.as_deref(), Some(level) if level != "management");
         if input.id == actor_id && input.is_active == Some(false) {
@@ -372,7 +394,7 @@ pub async fn update_user(
 
 #[cfg(test)]
 mod tests {
-    use super::{hash_pin, verify_pin};
+    use super::{hash_pin, validate_owner_update, verify_pin};
 
     #[test]
     fn hash_and_verify_pin_roundtrip() {
@@ -388,5 +410,13 @@ mod tests {
         let first = hash_pin("1234").unwrap();
         let second = hash_pin("1234").unwrap();
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn owner_role_and_active_status_are_immutable() {
+        assert!(validate_owner_update(true, Some("staff"), None).is_err());
+        assert!(validate_owner_update(true, None, Some(false)).is_err());
+        assert!(validate_owner_update(true, Some("management"), Some(true)).is_ok());
+        assert!(validate_owner_update(false, Some("staff"), Some(false)).is_ok());
     }
 }

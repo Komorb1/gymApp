@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::db::{log_activity, Db};
 use crate::error::{AppError, AppResult};
-use crate::models::{CreateMemberInput, Member, MemberFlag, UpdateMemberInput};
+use crate::models::{CreateMemberInput, Member, MemberFlag, MemberReport, UpdateMemberInput};
 use crate::session::{require_management, require_user, Sessions};
 
 fn row_to_member(row: &rusqlite::Row) -> rusqlite::Result<Member> {
@@ -79,6 +79,20 @@ fn build_fts_query(query: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn ensure_member_has_no_subscriptions(conn: &rusqlite::Connection, id: i64) -> AppResult<()> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM subscriptions WHERE member_id = ?1",
+        rusqlite::params![id],
+        |row| row.get(0),
+    )?;
+    if count > 0 {
+        return Err(AppError::Conflict(
+            "A member with subscription history cannot be deleted".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -169,7 +183,7 @@ pub async fn create_member(
                 input.last_name.unwrap_or_default().trim(),
                 clean_optional(input.id_number),
                 input.phone.trim(),
-                clean_optional(input.whatsapp_no),
+                input.phone.trim(),
                 clean_optional(input.email),
                 clean_optional(input.birth_date),
                 clean_optional(input.notes),
@@ -206,13 +220,14 @@ pub async fn update_member(
         if before.is_deleted {
             return Err(AppError::NotFound("Member not found".into()));
         }
-        let first_name = input.first_name.unwrap_or_else(|| before.first_name.clone());
+        let first_name = input
+            .first_name
+            .unwrap_or_else(|| before.first_name.clone());
         let phone = input.phone.unwrap_or_else(|| before.phone.clone());
         validate_member(&first_name, &phone)?;
         let middle_name = input.middle_name.unwrap_or(before.middle_name.clone());
         let last_name = input.last_name.unwrap_or_else(|| before.last_name.clone());
         let id_number = input.id_number.unwrap_or(before.id_number.clone());
-        let whatsapp_no = input.whatsapp_no.unwrap_or(before.whatsapp_no.clone());
         let email = input.email.unwrap_or(before.email.clone());
         let birth_date = input.birth_date.unwrap_or(before.birth_date.clone());
         let notes = input.notes.unwrap_or(before.notes.clone());
@@ -237,7 +252,7 @@ pub async fn update_member(
                 last_name.trim(),
                 clean_optional(id_number),
                 phone.trim(),
-                clean_optional(whatsapp_no),
+                phone.trim(),
                 clean_optional(email),
                 clean_optional(birth_date),
                 clean_optional(notes),
@@ -273,6 +288,7 @@ pub async fn delete_member(
         let transaction = conn.transaction()?;
         let actor_id = require_management(&transaction, &sessions, &session_token)?;
         let before = member_by_id(&transaction, id)?;
+        ensure_member_has_no_subscriptions(&transaction, id)?;
         let affected = transaction.execute(
             "UPDATE members SET
                 is_deleted = 1,
@@ -353,10 +369,7 @@ pub async fn set_member_flag(
             rusqlite::params![input.member_id, input.flag],
             row_to_flag,
         )?;
-        let before_json = before
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let before_json = before.as_ref().map(serde_json::to_string).transpose()?;
         let after_json = serde_json::to_string(&after)?;
         log_activity(
             &transaction,
@@ -438,11 +451,79 @@ pub async fn save_photo(
         return Err(AppError::Validation("Unsupported image type".into()));
     }
     if std::fs::metadata(&source)?.len() > 10 * 1024 * 1024 {
-        return Err(AppError::Validation("Image must be 10 MB or smaller".into()));
+        return Err(AppError::Validation(
+            "Image must be 10 MB or smaller".into(),
+        ));
     }
     let photos_dir = app.path().app_data_dir()?.join("photos");
     std::fs::create_dir_all(&photos_dir)?;
     let destination = photos_dir.join(format!("member_{member_id}.{extension}"));
     std::fs::copy(source, &destination)?;
     Ok(destination.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn list_member_reports(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+) -> AppResult<Vec<MemberReport>> {
+    db.with_conn(|conn| {
+        require_user(conn, &sessions, &session_token)?;
+        let mut member_statement =
+            conn.prepare("SELECT * FROM members ORDER BY created_at DESC")?;
+        let members = member_statement
+            .query_map([], row_to_member)?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut subscription_statement = conn
+            .prepare("SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC")?;
+        let mut reports = Vec::with_capacity(members.len());
+        for member in members {
+            let subscriptions = subscription_statement
+                .query_map(
+                    rusqlite::params![member.id],
+                    crate::commands::subscriptions::row_to_subscription,
+                )?
+                .collect::<Result<Vec<_>, _>>()?;
+            reports.push(MemberReport {
+                member,
+                subscriptions,
+            });
+        }
+        Ok(reports)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_member_has_no_subscriptions;
+    use crate::db::migrations;
+    use rusqlite::Connection;
+
+    #[test]
+    fn member_with_any_subscription_cannot_be_deleted() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '123', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01')",
+            [],
+        )
+        .unwrap();
+
+        assert!(ensure_member_has_no_subscriptions(&conn, 1).is_err());
+    }
 }

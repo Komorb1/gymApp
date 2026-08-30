@@ -63,11 +63,7 @@ pub fn require_user(conn: &Connection, sessions: &Sessions, token: &str) -> AppR
     Ok(user_id)
 }
 
-pub fn require_management(
-    conn: &Connection,
-    sessions: &Sessions,
-    token: &str,
-) -> AppResult<i64> {
+pub fn require_management(conn: &Connection, sessions: &Sessions, token: &str) -> AppResult<i64> {
     let user_id = require_user(conn, sessions, token)?;
     let access_level: String = conn.query_row(
         "SELECT access_level FROM users WHERE id = ?1",

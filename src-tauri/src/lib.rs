@@ -41,6 +41,7 @@ pub fn run() {
             commands::members::create_member,
             commands::members::update_member,
             commands::members::delete_member,
+            commands::members::list_member_reports,
             commands::members::get_member_flags,
             commands::members::set_member_flag,
             commands::members::remove_member_flag,

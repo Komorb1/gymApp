@@ -34,6 +34,7 @@ export function MembersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,13 +49,16 @@ export function MembersPage() {
 
   const openDelete = (e: React.MouseEvent, m: Member) => {
     e.stopPropagation();
+    setDeleteError("");
     setDeleteTarget(m);
   };
 
   const confirmDelete = () => {
     if (deleteTarget) {
-      deleteMut.mutate(deleteTarget.id);
-      setDeleteTarget(null);
+      deleteMut.mutate(deleteTarget.id, {
+        onSuccess: () => setDeleteTarget(null),
+        onError: () => setDeleteError(t("members.cannotDeleteSubscribed")),
+      });
     }
   };
 
@@ -215,6 +219,9 @@ export function MembersPage() {
               {deleteTarget && fullName(deleteTarget)}?
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive font-cairo">{deleteError}</p>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
