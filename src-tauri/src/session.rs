@@ -17,7 +17,7 @@ impl Sessions {
     pub fn issue(&self, user_id: i64) -> AppResult<String> {
         let mut bytes = [0_u8; 32];
         OsRng.fill_bytes(&mut bytes);
-        let token = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let token: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
         self.0
             .lock()
             .map_err(|error| AppError::Auth(error.to_string()))?
