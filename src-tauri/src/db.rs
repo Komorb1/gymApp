@@ -70,6 +70,37 @@ impl Db {
     }
 }
 
+fn normalize_activity_details(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            object.remove("created_at");
+            object.remove("updated_at");
+            object.remove("last_login_at");
+            for nested in object.values_mut() {
+                normalize_activity_details(nested);
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for nested in values {
+                normalize_activity_details(nested);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn activity_details_are_equal(before: &str, after: &str) -> bool {
+    let (Ok(mut before), Ok(mut after)) = (
+        serde_json::from_str::<serde_json::Value>(before),
+        serde_json::from_str::<serde_json::Value>(after),
+    ) else {
+        return false;
+    };
+    normalize_activity_details(&mut before);
+    normalize_activity_details(&mut after);
+    before == after
+}
+
 pub fn log_activity(
     conn: &Connection,
     user_id: i64,
@@ -79,6 +110,10 @@ pub fn log_activity(
     before_details: Option<&str>,
     after_details: Option<&str>,
 ) -> AppResult<()> {
+    if matches!((before_details, after_details), (Some(before), Some(after)) if activity_details_are_equal(before, after))
+    {
+        return Ok(());
+    }
     conn.execute(
         "INSERT INTO activity_logs (user_id, action, target_type, target_id, before_details, after_details) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -96,7 +131,7 @@ pub fn log_activity(
 
 #[cfg(test)]
 mod tests {
-    use super::migrations;
+    use super::{log_activity, migrations};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -180,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_tracks_owner_and_subscription_discount() {
+    fn schema_tracks_owner_discount_and_payment_status() {
         let conn = test_db();
         let user_columns: Vec<String> = conn
             .prepare("PRAGMA table_info(users)")
@@ -199,6 +234,7 @@ mod tests {
 
         assert!(user_columns.contains(&"is_owner".to_string()));
         assert!(subscription_columns.contains(&"discount_percent".to_string()));
+        assert!(subscription_columns.contains(&"is_paid".to_string()));
     }
 
     #[test]
@@ -223,6 +259,70 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn payment_status_constraint_is_enforced() {
+        let conn = test_db();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '123', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        let result = conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, is_paid
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 2)",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn activity_log_skips_timestamp_only_updates() {
+        let conn = test_db();
+        conn.execute(
+            "INSERT INTO users (username, pin_hash, access_level) VALUES ('admin', 'hash', 'management')",
+            [],
+        )
+        .unwrap();
+
+        log_activity(
+            &conn,
+            1,
+            "member.update",
+            Some("member"),
+            Some(1),
+            Some(r#"{"phone":"123","updated_at":"2026-01-01"}"#),
+            Some(r#"{"phone":"123","updated_at":"2026-01-02"}"#),
+        )
+        .unwrap();
+        let timestamp_only_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM activity_logs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(timestamp_only_count, 0);
+
+        log_activity(
+            &conn,
+            1,
+            "member.update",
+            Some("member"),
+            Some(1),
+            Some(r#"{"phone":"123"}"#),
+            Some(r#"{"phone":"456"}"#),
+        )
+        .unwrap();
+        let meaningful_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM activity_logs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(meaningful_count, 1);
     }
 
     #[test]

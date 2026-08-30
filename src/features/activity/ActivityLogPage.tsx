@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
-import { formatDate } from "@/lib/format";
+import { activityChanges, type ActivityValue } from "@/lib/activityDetails";
+import { formatDate, formatPrice } from "@/lib/format";
 import type { ActivityLog } from "@/lib/ipc";
 
 const actionColors: Record<
@@ -89,13 +90,31 @@ export function ActivityLogPage() {
     t(`activity.actions.${action}`, { defaultValue: action });
   const formatTarget = (target: string | null) =>
     target ? t(`activity.targets.${target}`, { defaultValue: target }) : "—";
-  const formatDetails = (details: string | null) => {
-    if (!details) return "—";
-    try {
-      return JSON.stringify(JSON.parse(details), null, 2);
-    } catch {
-      return details;
+  const selectedChanges = useMemo(
+    () =>
+      selectedLog
+        ? activityChanges(selectedLog.before_details, selectedLog.after_details)
+        : [],
+    [selectedLog],
+  );
+  const formatDetailValue = (field: string, value: ActivityValue) => {
+    if (value === null || value === "") return "—";
+    if (
+      typeof value === "number" &&
+      (field === "price_cents" || field === "paid_amount_cents")
+    ) {
+      return formatPrice(value);
     }
+    if (field === "is_paid" && typeof value === "boolean") {
+      return t(`subscriptions.${value ? "paid" : "unpaid"}`);
+    }
+    if (field === "status" && typeof value === "string") {
+      return t(`subscriptions.${value}`, { defaultValue: value });
+    }
+    if (typeof value === "boolean") {
+      return t(value ? "common.yes" : "common.no");
+    }
+    return String(value);
   };
 
   if (isLoading) {
@@ -272,24 +291,46 @@ export function ActivityLogPage() {
               {selectedLog ? formatAction(selectedLog.action) : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2 min-w-0">
-              <h3 className="font-semibold font-cairo">
-                {t("activity.before")}
-              </h3>
-              <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words">
-                {formatDetails(selectedLog?.before_details ?? null)}
-              </pre>
+          {selectedChanges.length === 0 ? (
+            <p className="rounded-md bg-muted p-4 text-center text-sm text-muted-foreground font-cairo">
+              {t("activity.noChanges")}
+            </p>
+          ) : (
+            <div className="max-h-96 overflow-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr>
+                    <th className="p-3 text-start font-medium font-cairo">
+                      {t("activity.field")}
+                    </th>
+                    <th className="p-3 text-start font-medium font-cairo">
+                      {t("activity.before")}
+                    </th>
+                    <th className="p-3 text-start font-medium font-cairo">
+                      {t("activity.after")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedChanges.map((change) => (
+                    <tr key={change.field} className="border-t border-border">
+                      <td className="p-3 font-medium font-cairo">
+                        {t(`activity.fields.${change.field}`, {
+                          defaultValue: change.field,
+                        })}
+                      </td>
+                      <td className="p-3 text-muted-foreground font-cairo break-words">
+                        {formatDetailValue(change.field, change.before)}
+                      </td>
+                      <td className="p-3 font-cairo break-words">
+                        {formatDetailValue(change.field, change.after)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-2 min-w-0">
-              <h3 className="font-semibold font-cairo">
-                {t("activity.after")}
-              </h3>
-              <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words">
-                {formatDetails(selectedLog?.after_details ?? null)}
-              </pre>
-            </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

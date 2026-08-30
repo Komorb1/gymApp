@@ -47,7 +47,8 @@ pub async fn list_activity_logs(
         let mut statement = conn.prepare(
             "SELECT a.*, u.username FROM activity_logs a
              LEFT JOIN users u ON u.id = a.user_id
-             WHERE NOT (
+             WHERE a.action != 'auth.login'
+             AND NOT (
                  a.action = 'settings.update'
                  AND COALESCE(json_extract(a.before_details, '$.gym_name'), '') = COALESCE(json_extract(a.after_details, '$.gym_name'), '')
                  AND COALESCE(json_extract(a.before_details, '$.gym_address'), '') = COALESCE(json_extract(a.after_details, '$.gym_address'), '')

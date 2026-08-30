@@ -28,6 +28,7 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
         frozen_until: row.get("frozen_until")?,
         paid_amount_cents: row.get("paid_amount_cents")?,
         discount_percent: row.get("discount_percent")?,
+        is_paid: row.get("is_paid")?,
         notes: row.get("notes")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -212,8 +213,8 @@ pub async fn create_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, paid_amount_cents, discount_percent, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                start_date, end_date, paid_amount_cents, discount_percent, is_paid, notes
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -223,6 +224,7 @@ pub async fn create_subscription(
                 end_date,
                 final_price_cents,
                 input.discount_percent,
+                input.is_paid,
                 clean_notes(input.notes),
             ],
         )?;
@@ -267,8 +269,8 @@ pub async fn renew_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, paid_amount_cents, discount_percent, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                start_date, end_date, paid_amount_cents, discount_percent, is_paid, notes
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![
                 before.member_id,
                 plan_id,
@@ -278,6 +280,7 @@ pub async fn renew_subscription(
                 end_date,
                 final_price_cents,
                 input.discount_percent,
+                input.is_paid,
                 clean_notes(input.notes),
             ],
         )?;
@@ -431,12 +434,14 @@ pub async fn update_subscription(
             "UPDATE subscriptions SET
                 paid_amount_cents = ?1,
                 discount_percent = ?2,
-                notes = ?3,
+                is_paid = ?3,
+                notes = ?4,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?4",
+             WHERE id = ?5",
             rusqlite::params![
                 final_price_cents,
                 input.discount_percent,
+                input.is_paid,
                 clean_notes(input.notes),
                 input.subscription_id,
             ],

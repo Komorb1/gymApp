@@ -193,26 +193,11 @@ pub async fn login(
         if is_active == 0 || !verify_pin(&pin, &pin_hash) {
             return Err(AppError::Auth("Invalid username or PIN".into()));
         }
-        let transaction = conn.transaction()?;
-        let before = user_by_id(&transaction, id)?;
-        transaction.execute(
+        conn.execute(
             "UPDATE users SET last_login_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1",
             rusqlite::params![id],
         )?;
-        let user = user_by_id(&transaction, id)?;
-        let before_json = serde_json::to_string(&before)?;
-        let after_json = serde_json::to_string(&user)?;
-        log_activity(
-            &transaction,
-            id,
-            "auth.login",
-            Some("user"),
-            Some(id),
-            Some(&before_json),
-            Some(&after_json),
-        )?;
-        transaction.commit()?;
-        Ok(user)
+        user_by_id(conn, id)
     })?;
     let session_token = sessions.issue(user.id)?;
     Ok(AuthSession {
@@ -376,8 +361,14 @@ pub async fn update_user(
                 other => AppError::Sqlite(other),
             })?;
         let user = user_by_id(&transaction, input.id)?;
-        let before_json = serde_json::to_string(&before)?;
-        let after_json = serde_json::to_string(&user)?;
+        let mut before_details = serde_json::to_value(&before)?;
+        let mut after_details = serde_json::to_value(&user)?;
+        if input.pin.is_some() {
+            before_details["pin_changed"] = serde_json::Value::Bool(false);
+            after_details["pin_changed"] = serde_json::Value::Bool(true);
+        }
+        let before_json = serde_json::to_string(&before_details)?;
+        let after_json = serde_json::to_string(&after_details)?;
         log_activity(
             &transaction,
             actor_id,

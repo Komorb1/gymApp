@@ -191,6 +191,9 @@ export function ReportsPage() {
                             {t("subscriptions.status")}
                           </th>
                           <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                            {t("subscriptions.payment")}
+                          </th>
+                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
                             {t("subscriptions.discount")}
                           </th>
                           <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
@@ -229,6 +232,20 @@ export function ReportsPage() {
                                 isExpired(subscription.end_date)
                                   ? t("subscriptions.expired")
                                   : t(`subscriptions.${subscription.status}`)}
+                              </Badge>
+                            </td>
+                            <td className="p-3">
+                              <Badge
+                                variant={
+                                  subscription.is_paid
+                                    ? "success"
+                                    : "destructive"
+                                }
+                                className="font-cairo"
+                              >
+                                {t(
+                                  `subscriptions.${subscription.is_paid ? "paid" : "unpaid"}`,
+                                )}
                               </Badge>
                             </td>
                             <td className="p-3 font-cairo">

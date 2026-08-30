@@ -324,6 +324,16 @@ export function MemberProfile() {
                                 </Badge>
                                 <Badge
                                   variant={
+                                    s.is_paid ? "success" : "destructive"
+                                  }
+                                  className="font-cairo"
+                                >
+                                  {t(
+                                    `subscriptions.${s.is_paid ? "paid" : "unpaid"}`,
+                                  )}
+                                </Badge>
+                                <Badge
+                                  variant={
                                     s.discount_percent > 0
                                       ? "default"
                                       : "secondary"
@@ -370,6 +380,7 @@ export function MemberProfile() {
                                           subscription_id: s.id,
                                           plan_id: s.plan_id,
                                           discount_percent: s.discount_percent,
+                                          is_paid: s.is_paid,
                                           notes: null,
                                         })
                                       }

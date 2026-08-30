@@ -195,6 +195,7 @@ pub struct Subscription {
     pub frozen_until: Option<String>,
     pub paid_amount_cents: i64,
     pub discount_percent: i64,
+    pub is_paid: bool,
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -206,6 +207,7 @@ pub struct CreateSubscriptionInput {
     pub plan_id: i64,
     pub start_date: Option<String>,
     pub discount_percent: i64,
+    pub is_paid: bool,
     pub notes: Option<String>,
 }
 
@@ -214,6 +216,7 @@ pub struct RenewSubscriptionInput {
     pub subscription_id: i64,
     pub plan_id: Option<i64>,
     pub discount_percent: i64,
+    pub is_paid: bool,
     pub notes: Option<String>,
 }
 
@@ -221,6 +224,7 @@ pub struct RenewSubscriptionInput {
 pub struct UpdateSubscriptionInput {
     pub subscription_id: i64,
     pub discount_percent: i64,
+    pub is_paid: bool,
     pub notes: Option<String>,
 }
 
