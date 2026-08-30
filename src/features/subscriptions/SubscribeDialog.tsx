@@ -33,6 +33,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
     new Date().toISOString().slice(0, 10),
   );
   const [discountPercent, setDiscountPercent] = useState("0");
+  const [isPaid, setIsPaid] = useState(true);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -55,6 +56,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         plan_id: planId,
         start_date: startDate || null,
         discount_percent: Number(discountPercent),
+        is_paid: isPaid,
         notes: notes || null,
       },
       {
@@ -145,6 +147,28 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                 )}
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-cairo">{t("subscriptions.payment")}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={isPaid ? "default" : "outline"}
+                onClick={() => setIsPaid(true)}
+                className="font-cairo"
+              >
+                {t("subscriptions.paid")}
+              </Button>
+              <Button
+                type="button"
+                variant={!isPaid ? "default" : "outline"}
+                onClick={() => setIsPaid(false)}
+                className="font-cairo"
+              >
+                {t("subscriptions.unpaid")}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -145,6 +145,7 @@ export type Subscription = {
   frozen_until: string | null;
   paid_amount_cents: number;
   discount_percent: number;
+  is_paid: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -155,6 +156,7 @@ export type CreateSubscriptionInput = {
   plan_id: number;
   start_date?: string | null;
   discount_percent: number;
+  is_paid: boolean;
   notes?: string | null;
 };
 
@@ -162,12 +164,14 @@ export type RenewSubscriptionInput = {
   subscription_id: number;
   plan_id?: number | null;
   discount_percent: number;
+  is_paid: boolean;
   notes?: string | null;
 };
 
 export type UpdateSubscriptionInput = {
   subscription_id: number;
   discount_percent: number;
+  is_paid: boolean;
   notes?: string | null;
 };
 

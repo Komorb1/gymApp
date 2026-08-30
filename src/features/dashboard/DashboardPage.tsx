@@ -125,6 +125,7 @@ export function DashboardPage() {
                         subscription_id: s.id,
                         plan_id: s.plan_id,
                         discount_percent: s.discount_percent,
+                        is_paid: s.is_paid,
                         notes: null,
                       })
                     }

@@ -81,6 +81,7 @@ export function SubscriptionsPage() {
       subscription_id: s.id,
       plan_id: s.plan_id,
       discount_percent: s.discount_percent,
+      is_paid: s.is_paid,
       notes: null,
     });
   };
@@ -148,6 +149,12 @@ export function SubscriptionsPage() {
               {isExpired(s.end_date) && s.status === "active"
                 ? t("subscriptions.expired")
                 : t(`subscriptions.${s.status}`)}
+            </Badge>
+            <Badge
+              variant={s.is_paid ? "success" : "destructive"}
+              className="font-cairo"
+            >
+              {t(`subscriptions.${s.is_paid ? "paid" : "unpaid"}`)}
             </Badge>
             <Badge
               variant={s.discount_percent > 0 ? "default" : "secondary"}
@@ -239,7 +246,7 @@ export function SubscriptionsPage() {
               {t("subscriptions.endDate")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.discount")}
+              {t("subscriptions.paymentAndPrice")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.notes")}

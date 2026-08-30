@@ -30,6 +30,7 @@ export function EditMembershipDialog({
   const [discountPercent, setDiscountPercent] = useState(
     String(subscription.discount_percent),
   );
+  const [isPaid, setIsPaid] = useState(subscription.is_paid);
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
 
@@ -40,6 +41,7 @@ export function EditMembershipDialog({
       {
         subscription_id: subscription.id,
         discount_percent: Number(discountPercent),
+        is_paid: isPaid,
         notes: notes || null,
       },
       {
@@ -85,6 +87,27 @@ export function EditMembershipDialog({
                 ),
               )}
             </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="font-cairo">{t("subscriptions.payment")}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={isPaid ? "default" : "outline"}
+                onClick={() => setIsPaid(true)}
+                className="font-cairo"
+              >
+                {t("subscriptions.paid")}
+              </Button>
+              <Button
+                type="button"
+                variant={!isPaid ? "default" : "outline"}
+                onClick={() => setIsPaid(false)}
+                className="font-cairo"
+              >
+                {t("subscriptions.unpaid")}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.notes")}</Label>
