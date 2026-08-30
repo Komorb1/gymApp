@@ -2,15 +2,14 @@ import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { RotateCw } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useDashboardStats, useSubscriptions, useRenewSubscription } from "@/hooks/useSubscriptions";
+import {
+  useDashboardStats,
+  useSubscriptions,
+  useRenewSubscription,
+} from "@/hooks/useSubscriptions";
 import { useNavStore } from "@/stores/nav";
 import { isExpiringSoon, memberPhotoUrl, formatDate } from "@/lib/format";
 
@@ -31,9 +30,18 @@ export function DashboardPage() {
   );
 
   const tiles = [
-    { label: t("dashboard.activeMembers"), value: stats?.active_members ?? "—" },
-    { label: t("dashboard.expiringThisWeek"), value: stats?.expiring_this_week ?? "—" },
-    { label: t("dashboard.expiredOverdue"), value: stats?.expired_overdue ?? "—" },
+    {
+      label: t("dashboard.activeMembers"),
+      value: stats?.active_members ?? "—",
+    },
+    {
+      label: t("dashboard.expiringThisWeek"),
+      value: stats?.expiring_this_week ?? "—",
+    },
+    {
+      label: t("dashboard.expiredOverdue"),
+      value: stats?.expired_overdue ?? "—",
+    },
     { label: t("dashboard.totalMembers"), value: stats?.total_members ?? "—" },
   ];
 
@@ -65,7 +73,9 @@ export function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-cairo">{t("dashboard.expiringSoon")}</CardTitle>
+          <CardTitle className="font-cairo">
+            {t("dashboard.expiringSoon")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {expiringSoon.length === 0 ? (
@@ -79,21 +89,29 @@ export function DashboardPage() {
                   key={s.id}
                   className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/30 transition-colors"
                 >
-                  {memberPhotoUrl(s.member_photo_path) ? (
+                  {memberPhotoUrl(s.member_snapshot.photo_path) ? (
                     <img
-                      src={memberPhotoUrl(s.member_photo_path)!}
+                      src={memberPhotoUrl(s.member_snapshot.photo_path)!}
                       alt=""
                       className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                      {s.member_name[0]?.toUpperCase()}
+                      {s.member_snapshot.first_name[0]?.toUpperCase()}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-cairo font-medium truncate">{s.member_name}</p>
+                    <p className="font-cairo font-medium truncate">
+                      {[
+                        s.member_snapshot.first_name,
+                        s.member_snapshot.middle_name,
+                        s.member_snapshot.last_name,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </p>
                     <p className="text-xs text-muted-foreground font-cairo">
-                      {s.plan_name} · {formatDate(s.end_date)}
+                      {s.plan_snapshot.name} · {formatDate(s.end_date)}
                     </p>
                   </div>
                   <Badge variant="warning" className="font-cairo">
@@ -106,7 +124,8 @@ export function DashboardPage() {
                       renewMut.mutate({
                         subscription_id: s.id,
                         plan_id: s.plan_id,
-                        is_paid: true,
+                        paid_amount_cents: s.plan_snapshot.price_cents,
+                        notes: null,
                       })
                     }
                     disabled={renewMut.isPending}

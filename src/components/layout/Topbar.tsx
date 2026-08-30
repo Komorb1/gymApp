@@ -2,8 +2,13 @@ import { useTranslation } from "react-i18next";
 import { Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useSettings, useUpdateSettings, applyTheme } from "@/hooks/useSettings";
+import {
+  useSettings,
+  useUpdateSettings,
+  applyTheme,
+} from "@/hooks/useSettings";
 import { useNavStore, type Page } from "@/stores/nav";
+import { useAuthStore } from "@/stores/auth";
 
 const pageTitles: Record<Page, string> = {
   dashboard: "nav.dashboard",
@@ -20,6 +25,9 @@ export function Topbar() {
   const page = useNavStore((s) => s.page);
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
+  const isManagement = useAuthStore(
+    (state) => state.user?.access_level === "management",
+  );
 
   const toggleLang = () => {
     const next = i18n.language === "ar" ? "en" : "ar";
@@ -34,21 +42,32 @@ export function Topbar() {
 
   return (
     <header className="h-14 shrink-0 border-b border-border bg-card flex items-center px-4 gap-3">
-      <h1 className="text-lg font-semibold font-cairo">{t(pageTitles[page])}</h1>
+      <h1 className="text-lg font-semibold font-cairo">
+        {t(pageTitles[page])}
+      </h1>
 
       <div className="flex-1" />
 
-      <Button variant="ghost" size="sm" onClick={toggleLang} className="font-cairo">
-        {i18n.language === "ar" ? "EN" : "ع"}
-      </Button>
+      {isManagement && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleLang}
+            className="font-cairo"
+          >
+            {i18n.language === "ar" ? "EN" : "ع"}
+          </Button>
 
-      <Button variant="ghost" size="icon" onClick={toggleTheme}>
-        {settings?.theme === "dark" ? (
-          <Sun className="w-5 h-5" />
-        ) : (
-          <Moon className="w-5 h-5" />
-        )}
-      </Button>
+          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+            {settings?.theme === "dark" ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </Button>
+        </>
+      )}
     </header>
   );
 }

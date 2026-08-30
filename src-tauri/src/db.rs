@@ -42,9 +42,11 @@ fn auto_unfreeze(conn: &Connection) -> AppResult<()> {
     let affected = conn.execute(
         "UPDATE subscriptions SET \
             status = 'active', \
+            end_date = date(end_date, '+' || MAX(0, CAST(julianday(frozen_until) - julianday(date(frozen_at)) AS INTEGER)) || ' days'), \
+            frozen_at = NULL, \
             frozen_until = NULL, \
             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') \
-         WHERE status = 'frozen' AND frozen_until IS NOT NULL AND frozen_until < ?1",
+         WHERE status = 'frozen' AND frozen_at IS NOT NULL AND frozen_until IS NOT NULL AND frozen_until <= ?1",
         rusqlite::params![today],
     )?;
     if affected > 0 {
@@ -56,15 +58,15 @@ fn auto_unfreeze(conn: &Connection) -> AppResult<()> {
 impl Db {
     pub fn with_conn<F, T>(&self, f: F) -> AppResult<T>
     where
-        F: FnOnce(&Connection) -> AppResult<T>,
+        F: FnOnce(&mut Connection) -> AppResult<T>,
     {
-        let guard = self
+        let mut guard = self
             .0
             .lock()
             .map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
         // Ensure foreign_keys pragma is set on this thread
         guard.execute_batch("PRAGMA foreign_keys = ON;")?;
-        f(&guard)
+        f(&mut guard)
     }
 }
 
@@ -74,12 +76,20 @@ pub fn log_activity(
     action: &str,
     target_type: Option<&str>,
     target_id: Option<i64>,
-    details: Option<&str>,
+    before_details: Option<&str>,
+    after_details: Option<&str>,
 ) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO activity_logs (user_id, action, target_type, target_id, details) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![user_id, action, target_type, target_id, details],
+        "INSERT INTO activity_logs (user_id, action, target_type, target_id, before_details, after_details) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![
+            user_id,
+            action,
+            target_type,
+            target_id,
+            before_details,
+            after_details
+        ],
     )?;
     Ok(())
 }
@@ -108,7 +118,6 @@ mod tests {
             .collect();
 
         for expected in [
-            "branches",
             "users",
             "members",
             "plans",
@@ -139,22 +148,16 @@ mod tests {
     }
 
     #[test]
-    fn seed_main_branch_exists() {
+    fn branch_scaffolding_is_removed() {
         let conn = test_db();
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM branches", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(count, 1);
-        let (id, name, is_active): (i64, String, i64) = conn
             .query_row(
-                "SELECT id, name, is_active FROM branches WHERE id = 1",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'branches'",
                 [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(id, 1);
-        assert_eq!(name, "Main Branch");
-        assert_eq!(is_active, 1);
+        assert_eq!(count, 0);
     }
 
     #[test]
@@ -255,8 +258,9 @@ mod tests {
     fn foreign_keys_enforced() {
         let conn = test_db();
         let result = conn.execute(
-            "INSERT INTO subscriptions (member_id, plan_id, start_date, end_date) \
-             VALUES (999, 999, '2026-01-01', '2026-02-01')",
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json, start_date, end_date
+             ) VALUES (999, 999, '{}', '{}', '2026-01-01', '2026-02-01')",
             [],
         );
         assert!(
@@ -269,14 +273,13 @@ mod tests {
     fn check_constraints_enforced() {
         let conn = test_db();
         let r1 = conn.execute(
-            "INSERT INTO members (first_name, last_name, gender) \
-             VALUES ('A', 'B', 'other')",
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('', 'B', '')",
             [],
         );
-        assert!(r1.is_err(), "invalid gender should violate CHECK");
+        assert!(r1.is_err(), "first name and phone should be required");
 
         conn.execute(
-            "INSERT INTO members (first_name, last_name) VALUES ('Test', 'Member')",
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('Test', 'Member', '123')",
             [],
         )
         .unwrap();
@@ -287,8 +290,10 @@ mod tests {
         )
         .unwrap();
         let r2 = conn.execute(
-            "INSERT INTO subscriptions (member_id, plan_id, start_date, end_date, status) \
-             VALUES (1, 1, '2026-01-01', '2026-02-01', 'expired')",
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 'expired')",
             [],
         );
         assert!(
@@ -301,7 +306,7 @@ mod tests {
     fn cascade_soft_delete_keeps_subscriptions() {
         let conn = test_db();
         conn.execute(
-            "INSERT INTO members (first_name, last_name) VALUES ('Soft', 'Delete')",
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('Soft', 'Delete', '123')",
             [],
         )
         .unwrap();
@@ -312,8 +317,9 @@ mod tests {
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO subscriptions (member_id, plan_id, start_date, end_date) \
-             VALUES (1, 1, '2026-01-01', '2026-02-01')",
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json, start_date, end_date
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01')",
             [],
         )
         .unwrap();
@@ -340,7 +346,7 @@ mod tests {
     fn updated_at_default_works() {
         let conn = test_db();
         conn.execute(
-            "INSERT INTO members (first_name, last_name) VALUES ('Time', 'Stamp')",
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('Time', 'Stamp', '123')",
             [],
         )
         .unwrap();

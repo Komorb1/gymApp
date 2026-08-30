@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, priceToCents } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 
 interface SubscribeDialogProps {
@@ -29,17 +29,19 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
 
   const activePlans = plans.filter((p) => p.is_active);
   const [planId, setPlanId] = useState<number | null>(null);
-  const [startDate, setStartDate] = useState("");
-  const [isPaid, setIsPaid] = useState(true);
+  const [startDate, setStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [paidAmount, setPaidAmount] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (activePlans.length > 0 && planId === null) {
       setPlanId(activePlans[0].id);
+      setPaidAmount(formatPrice(activePlans[0].price_cents));
     }
   }, [activePlans, planId]);
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +55,8 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         member_id: member.id,
         plan_id: planId,
         start_date: startDate || null,
-        is_paid: isPaid,
+        paid_amount_cents: priceToCents(paidAmount),
+        notes: notes || null,
       },
       {
         onSuccess: onClose,
@@ -90,7 +93,10 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setPlanId(p.id)}
+                    onClick={() => {
+                      setPlanId(p.id);
+                      setPaidAmount(formatPrice(p.price_cents));
+                    }}
                     className={`w-full flex items-center justify-between p-2 rounded-md border transition-colors font-cairo ${
                       planId === p.id
                         ? "border-primary bg-primary/5"
@@ -112,34 +118,33 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
             <Input
               type="date"
               value={startDate}
-              defaultValue={today}
               onChange={(e) => setStartDate(e.target.value)}
               className="font-cairo"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="font-cairo">{t("subscriptions.status")}</Label>
-            <div className="flex gap-1">
-              <Button
-                type="button"
-                variant={isPaid ? "default" : "outline"}
-                size="sm"
-                className="flex-1 font-cairo"
-                onClick={() => setIsPaid(true)}
-              >
-                {t("subscriptions.paid")}
-              </Button>
-              <Button
-                type="button"
-                variant={!isPaid ? "default" : "outline"}
-                size="sm"
-                className="flex-1 font-cairo"
-                onClick={() => setIsPaid(false)}
-              >
-                {t("subscriptions.unpaid")}
-              </Button>
-            </div>
+            <Label className="font-cairo">
+              {t("subscriptions.paidAmount")}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={paidAmount}
+              onChange={(event) => setPaidAmount(event.target.value)}
+              className="font-cairo"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-cairo">{t("subscriptions.notes")}</Label>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
           </div>
 
           {error && (

@@ -2,6 +2,7 @@ mod commands;
 mod db;
 mod error;
 mod models;
+mod session;
 
 use tauri::Manager;
 
@@ -13,6 +14,7 @@ pub fn run() {
         .setup(|app| {
             let db = db::init(app.handle())?;
             app.manage(db);
+            app.manage(session::Sessions::new());
 
             #[cfg(debug_assertions)]
             {
@@ -24,11 +26,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::health::db_health,
             commands::auth::setup_status,
             commands::auth::setup_first_user,
             commands::auth::login,
-            commands::auth::get_user_by_id,
+            commands::auth::logout,
             commands::auth::list_users,
             commands::auth::create_user,
             commands::auth::update_user,
@@ -55,7 +56,7 @@ pub fn run() {
             commands::subscriptions::freeze_subscription,
             commands::subscriptions::unfreeze_subscription,
             commands::subscriptions::cancel_subscription,
-            commands::subscriptions::set_subscription_paid,
+            commands::subscriptions::update_subscription,
             commands::subscriptions::get_dashboard_stats,
             commands::activity::list_activity_logs,
         ])

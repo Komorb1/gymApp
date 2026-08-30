@@ -37,6 +37,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   const savePhotoMut = useSavePhoto();
 
   const [photoSource, setPhotoSource] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState("");
 
   const {
     register,
@@ -51,18 +52,26 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
     if (member) {
       reset({
         first_name: member.first_name,
+        middle_name: member.middle_name ?? "",
         last_name: member.last_name,
-        phone: member.phone ?? "",
+        id_number: member.id_number ?? "",
+        phone: member.phone,
+        whatsapp_no: member.whatsapp_no ?? "",
         email: member.email ?? "",
         birth_date: member.birth_date ?? "",
+        notes: member.notes ?? "",
       });
     } else {
       reset({
         first_name: "",
+        middle_name: "",
         last_name: "",
+        id_number: "",
         phone: "",
+        whatsapp_no: "",
         email: "",
         birth_date: "",
+        notes: "",
       });
     }
   }, [member, reset]);
@@ -72,7 +81,9 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   const pickPhoto = async () => {
     try {
       const selected = await openDialog({
-        filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }],
+        filters: [
+          { name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] },
+        ],
       });
       if (selected) {
         setPhotoSource(selected as string);
@@ -83,6 +94,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   };
 
   const onSubmit = async (data: MemberFormData) => {
+    setSaveError("");
     try {
       let savedMember: Member;
 
@@ -90,18 +102,26 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
         savedMember = await updateMut.mutateAsync({
           id: member.id,
           first_name: data.first_name,
+          middle_name: data.middle_name || null,
           last_name: data.last_name,
-          phone: data.phone || null,
+          id_number: data.id_number || null,
+          phone: data.phone,
+          whatsapp_no: data.whatsapp_no || null,
           email: data.email || null,
           birth_date: data.birth_date || null,
+          notes: data.notes || null,
         });
       } else {
         savedMember = await createMut.mutateAsync({
           first_name: data.first_name,
+          middle_name: data.middle_name || null,
           last_name: data.last_name,
-          phone: data.phone || null,
+          id_number: data.id_number || null,
+          phone: data.phone,
+          whatsapp_no: data.whatsapp_no || null,
           email: data.email || null,
           birth_date: data.birth_date || null,
+          notes: data.notes || null,
         });
       }
 
@@ -118,11 +138,12 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
       onClose();
     } catch (err) {
-      console.error("Failed to save member:", err);
+      setSaveError(String(err));
     }
   };
 
-  const isPending = createMut.isPending || updateMut.isPending || savePhotoMut.isPending;
+  const isPending =
+    createMut.isPending || updateMut.isPending || savePhotoMut.isPending;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -151,13 +172,19 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
                 <Upload className="w-6 h-6 text-muted-foreground" />
               )}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={pickPhoto} className="font-cairo">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={pickPhoto}
+              className="font-cairo"
+            >
               <Upload className="w-4 h-4" />
               {t("members.photo")}
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label className="font-cairo">{t("members.firstName")}</Label>
               <Input {...register("first_name")} className="font-cairo" />
@@ -168,13 +195,12 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
               )}
             </div>
             <div className="space-y-2">
+              <Label className="font-cairo">{t("members.middleName")}</Label>
+              <Input {...register("middle_name")} className="font-cairo" />
+            </div>
+            <div className="space-y-2">
               <Label className="font-cairo">{t("members.lastName")}</Label>
               <Input {...register("last_name")} className="font-cairo" />
-              {errors.last_name && (
-                <p className="text-xs text-destructive font-cairo">
-                  {errors.last_name.message}
-                </p>
-              )}
             </div>
           </div>
 
@@ -182,10 +208,30 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
             <div className="space-y-2">
               <Label className="font-cairo">{t("members.phone")}</Label>
               <Input {...register("phone")} className="font-cairo" />
+              {errors.phone && (
+                <p className="text-xs text-destructive font-cairo">
+                  {errors.phone.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="font-cairo">{t("members.whatsappNo")}</Label>
+              <Input {...register("whatsapp_no")} className="font-cairo" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="font-cairo">{t("members.idNumber")}</Label>
+              <Input {...register("id_number")} className="font-cairo" />
             </div>
             <div className="space-y-2">
               <Label className="font-cairo">{t("members.email")}</Label>
-              <Input {...register("email")} type="email" className="font-cairo" />
+              <Input
+                {...register("email")}
+                type="email"
+                className="font-cairo"
+              />
               {errors.email && (
                 <p className="text-xs text-destructive font-cairo">
                   {errors.email.message}
@@ -196,11 +242,33 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("members.birthDate")}</Label>
-            <Input {...register("birth_date")} type="date" className="font-cairo" />
+            <Input
+              {...register("birth_date")}
+              type="date"
+              className="font-cairo"
+            />
           </div>
 
+          <div className="space-y-2">
+            <Label className="font-cairo">{t("members.notes")}</Label>
+            <textarea
+              {...register("notes")}
+              rows={3}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          {saveError && (
+            <p className="text-sm text-destructive font-cairo">{saveError}</p>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} className="font-cairo">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="font-cairo"
+            >
               {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isPending} className="font-cairo">

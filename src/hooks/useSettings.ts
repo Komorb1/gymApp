@@ -32,10 +32,11 @@ export function useSettings() {
 
 export function useUpdateSettings() {
   const queryClient = useQueryClient();
-  const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
 
   return useMutation({
-    mutationFn: (input: UpdateSettingsInput) => updateSettings(actorId, input),
+    mutationFn: (input: UpdateSettingsInput) =>
+      updateSettings(sessionToken, input),
     onSuccess: (data) => {
       queryClient.setQueryData(["settings"], data);
       applyTheme(data.theme);

@@ -8,9 +8,13 @@ import { SubscriptionsPage } from "@/features/subscriptions/SubscriptionsPage";
 import { PlansPage } from "@/features/plans/PlansPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ActivityLogPage } from "@/features/activity/ActivityLogPage";
+import { useAuthStore } from "@/stores/auth";
 
 export function AppShell() {
   const page = useNavStore((s) => s.page);
+  const isManagement = useAuthStore(
+    (state) => state.user?.access_level === "management",
+  );
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -22,9 +26,9 @@ export function AppShell() {
           {page === "members" && <MembersPage />}
           {page === "member-profile" && <MemberProfile />}
           {page === "subscriptions" && <SubscriptionsPage />}
-          {page === "plans" && <PlansPage />}
+          {page === "plans" && isManagement && <PlansPage />}
           {page === "activity" && <ActivityLogPage />}
-          {page === "settings" && <SettingsPage />}
+          {page === "settings" && isManagement && <SettingsPage />}
         </main>
       </div>
     </div>

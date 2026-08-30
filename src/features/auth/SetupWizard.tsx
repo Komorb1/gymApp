@@ -12,13 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { setupFirstUser, updateSettings } from "@/lib/ipc";
+import { setupFirstUser } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 import { applyTheme, applyLanguage } from "@/hooks/useSettings";
 
 export function SetupWizard() {
   const { t } = useTranslation();
-  const setUser = useAuthStore((s) => s.setUser);
+  const setSession = useAuthStore((s) => s.setSession);
 
   const [gymName, setGymName] = useState("");
   const [username, setUsername] = useState("");
@@ -51,9 +51,14 @@ export function SetupWizard() {
       applyTheme(theme);
       applyLanguage(language);
 
-      const user = await setupFirstUser(username.trim(), pin, gymName.trim() || undefined);
-      await updateSettings(user.id, { language, theme });
-      setUser(user);
+      const session = await setupFirstUser(
+        username.trim(),
+        pin,
+        gymName.trim() || undefined,
+        language,
+        theme,
+      );
+      setSession(session);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -70,8 +75,12 @@ export function SetupWizard() {
               <Dumbbell className="w-7 h-7 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-cairo">{t("setup.welcome")}</CardTitle>
-          <CardDescription className="font-cairo">{t("setup.setupGym")}</CardDescription>
+          <CardTitle className="text-2xl font-cairo">
+            {t("setup.welcome")}
+          </CardTitle>
+          <CardDescription className="font-cairo">
+            {t("setup.setupGym")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -112,7 +121,9 @@ export function SetupWizard() {
                   type="password"
                   inputMode="numeric"
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="••••"
                   className="font-cairo text-center tracking-widest"
                 />
@@ -126,7 +137,9 @@ export function SetupWizard() {
                   type="password"
                   inputMode="numeric"
                   value={pinConfirm}
-                  onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="••••"
                   className="font-cairo text-center tracking-widest"
                 />

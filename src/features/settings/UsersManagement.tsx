@@ -14,33 +14,50 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { listUsers, createUser, updateUser, type User } from "@/lib/ipc";
+import {
+  listUsers,
+  createUser,
+  updateUser,
+  type AccessLevel,
+  type User,
+} from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
 export function UsersManagement() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const actorId = useAuthStore((s) => s.user?.id ?? 0);
+  const sessionToken = useAuthStore((s) => s.sessionToken ?? "");
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: listUsers,
+    queryKey: ["users", sessionToken],
+    queryFn: () => listUsers(sessionToken),
+    enabled: !!sessionToken,
   });
 
   const [showAdd, setShowAdd] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [formUsername, setFormUsername] = useState("");
   const [formPin, setFormPin] = useState("");
+  const [formAccessLevel, setFormAccessLevel] = useState<AccessLevel>("staff");
   const [formError, setFormError] = useState("");
 
   const createMut = useMutation({
-    mutationFn: ({ username, pin }: { username: string; pin: string }) =>
-      createUser(actorId, username, pin),
+    mutationFn: ({
+      username,
+      pin,
+      accessLevel,
+    }: {
+      username: string;
+      pin: string;
+      accessLevel: AccessLevel;
+    }) => createUser(sessionToken, username, pin, accessLevel),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setShowAdd(false);
       setFormUsername("");
       setFormPin("");
+      setFormAccessLevel("staff");
       setFormError("");
     },
     onError: (err) => setFormError(String(err)),
@@ -52,12 +69,21 @@ export function UsersManagement() {
       username,
       pin,
       is_active,
+      access_level,
     }: {
       id: number;
       username?: string;
       pin?: string;
       is_active?: boolean;
-    }) => updateUser(actorId, { id, username, pin, is_active }),
+      access_level?: AccessLevel;
+    }) =>
+      updateUser(sessionToken, {
+        id,
+        username,
+        pin,
+        is_active,
+        access_level,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditUser(null);
@@ -79,7 +105,11 @@ export function UsersManagement() {
       setFormError("PIN — min 4 digits");
       return;
     }
-    createMut.mutate({ username: formUsername.trim(), pin: formPin });
+    createMut.mutate({
+      username: formUsername.trim(),
+      pin: formPin,
+      accessLevel: formAccessLevel,
+    });
   };
 
   const handleEdit = (e: React.FormEvent) => {
@@ -94,6 +124,7 @@ export function UsersManagement() {
       id: editUser.id,
       username: formUsername.trim(),
       pin: formPin || undefined,
+      access_level: formAccessLevel,
     });
   };
 
@@ -101,6 +132,7 @@ export function UsersManagement() {
     setEditUser(u);
     setFormUsername(u.username);
     setFormPin("");
+    setFormAccessLevel(u.access_level);
     setFormError("");
   };
 
@@ -108,6 +140,7 @@ export function UsersManagement() {
     if (showAdd) {
       setFormUsername("");
       setFormPin("");
+      setFormAccessLevel("staff");
       setFormError("");
     }
   }, [showAdd]);
@@ -116,7 +149,11 @@ export function UsersManagement() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-cairo font-semibold">{t("settings.users")}</h3>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="font-cairo">
+        <Button
+          size="sm"
+          onClick={() => setShowAdd(true)}
+          className="font-cairo"
+        >
           <UserPlus className="w-4 h-4" />
           {t("settings.addUser")}
         </Button>
@@ -135,6 +172,9 @@ export function UsersManagement() {
                   {t("auth.username")}
                 </th>
                 <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                  {t("settings.accessLevel")}
+                </th>
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                   {t("members.status")}
                 </th>
                 <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
@@ -144,7 +184,10 @@ export function UsersManagement() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className={`border-t border-border ${u.id === actorId ? "bg-primary/5" : ""}`}>
+                <tr
+                  key={u.id}
+                  className={`border-t border-border ${u.id === actorId ? "bg-primary/5" : ""}`}
+                >
                   <td className="p-3 font-cairo font-medium">
                     <div className="flex items-center gap-2">
                       {u.username}
@@ -156,8 +199,18 @@ export function UsersManagement() {
                     </div>
                   </td>
                   <td className="p-3">
-                    <Badge variant={u.is_active ? "success" : "secondary"} className="font-cairo">
-                      {u.is_active ? t("members.active") : t("members.inactive")}
+                    <Badge variant="secondary" className="font-cairo">
+                      {t(`settings.${u.access_level}`)}
+                    </Badge>
+                  </td>
+                  <td className="p-3">
+                    <Badge
+                      variant={u.is_active ? "success" : "secondary"}
+                      className="font-cairo"
+                    >
+                      {u.is_active
+                        ? t("members.active")
+                        : t("members.inactive")}
                     </Badge>
                   </td>
                   <td className="p-3 text-end">
@@ -180,7 +233,9 @@ export function UsersManagement() {
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-cairo">{t("settings.addUser")}</DialogTitle>
+            <DialogTitle className="font-cairo">
+              {t("settings.addUser")}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="space-y-2">
@@ -198,10 +253,25 @@ export function UsersManagement() {
                 type="password"
                 inputMode="numeric"
                 value={formPin}
-                onChange={(e) => setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 placeholder="••••"
                 className="font-cairo text-center tracking-widest"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-cairo">{t("settings.accessLevel")}</Label>
+              <select
+                value={formAccessLevel}
+                onChange={(event) =>
+                  setFormAccessLevel(event.target.value as AccessLevel)
+                }
+                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm font-cairo"
+              >
+                <option value="staff">{t("settings.staff")}</option>
+                <option value="management">{t("settings.management")}</option>
+              </select>
             </div>
             {formError && (
               <p className="text-sm text-destructive font-cairo">{formError}</p>
@@ -215,8 +285,14 @@ export function UsersManagement() {
               >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMut.isPending} className="font-cairo">
-                {createMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              <Button
+                type="submit"
+                disabled={createMut.isPending}
+                className="font-cairo"
+              >
+                {createMut.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
                 {t("common.save")}
               </Button>
             </DialogFooter>
@@ -245,10 +321,25 @@ export function UsersManagement() {
                 type="password"
                 inputMode="numeric"
                 value={formPin}
-                onChange={(e) => setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 placeholder="•••• (leave blank to keep)"
                 className="font-cairo text-center tracking-widest"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-cairo">{t("settings.accessLevel")}</Label>
+              <select
+                value={formAccessLevel}
+                onChange={(event) =>
+                  setFormAccessLevel(event.target.value as AccessLevel)
+                }
+                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm font-cairo"
+              >
+                <option value="staff">{t("settings.staff")}</option>
+                <option value="management">{t("settings.management")}</option>
+              </select>
             </div>
             {editUser && (
               <Button
@@ -263,7 +354,9 @@ export function UsersManagement() {
                   })
                 }
               >
-                {editUser.is_active ? t("members.inactive") : t("members.active")}
+                {editUser.is_active
+                  ? t("members.inactive")
+                  : t("members.active")}
               </Button>
             )}
             {formError && (
@@ -278,8 +371,14 @@ export function UsersManagement() {
               >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={updateMut.isPending} className="font-cairo">
-                {updateMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              <Button
+                type="submit"
+                disabled={updateMut.isPending}
+                className="font-cairo"
+              >
+                {updateMut.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
                 {t("common.save")}
               </Button>
             </DialogFooter>

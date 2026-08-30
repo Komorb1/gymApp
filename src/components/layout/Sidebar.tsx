@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavStore, type Page } from "@/stores/nav";
 import { useAuthStore } from "@/stores/auth";
+import { logoutUser } from "@/lib/ipc";
 
 const navItems: { page: Page; icon: React.ElementType; key: string }[] = [
   { page: "dashboard", icon: LayoutDashboard, key: "nav.dashboard" },
@@ -27,7 +28,17 @@ export function Sidebar() {
   const { t } = useTranslation();
   const { page, navigate } = useNavStore();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const sessionToken = useAuthStore((s) => s.sessionToken);
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const isManagement = user?.access_level === "management";
+
+  const logout = async () => {
+    if (sessionToken) {
+      await logoutUser(sessionToken).catch(() => undefined);
+    }
+    navigate("dashboard");
+    clearSession();
+  };
 
   return (
     <aside className="w-60 shrink-0 bg-card border-e border-border flex flex-col">
@@ -39,23 +50,28 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-2 space-y-1">
-        {navItems.map(({ page: p, icon: Icon, key }) => {
-          const isActive =
-            page === p || (page === "member-profile" && p === "members");
-          return (
-            <button
-              key={p}
-              onClick={() => navigate(p)}
-              className={cn(
-                "nav-button",
-                isActive ? "nav-button-active" : "nav-button-inactive",
-              )}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              {t(key)}
-            </button>
-          );
-        })}
+        {navItems
+          .filter(
+            ({ page: itemPage }) =>
+              isManagement || !["plans", "settings"].includes(itemPage),
+          )
+          .map(({ page: p, icon: Icon, key }) => {
+            const isActive =
+              page === p || (page === "member-profile" && p === "members");
+            return (
+              <button
+                key={p}
+                onClick={() => navigate(p)}
+                className={cn(
+                  "nav-button",
+                  isActive ? "nav-button-active" : "nav-button-inactive",
+                )}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                {t(key)}
+              </button>
+            );
+          })}
       </nav>
 
       <div className="p-2 border-t border-border">

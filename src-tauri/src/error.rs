@@ -15,6 +15,9 @@ pub enum AppError {
     #[error("Migration error: {0}")]
     Migration(String),
 
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+
     #[error("Not found: {0}")]
     NotFound(String),
 
