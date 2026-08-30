@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub fn deserialize_nullable<'de, D, T>(
-    deserializer: D,
-) -> Result<Option<Option<T>>, D::Error>
+pub fn deserialize_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,
@@ -15,6 +13,7 @@ pub struct User {
     pub id: i64,
     pub username: String,
     pub access_level: String,
+    pub is_owner: bool,
     pub is_active: bool,
     pub last_login_at: Option<String>,
     pub created_at: String,
@@ -67,7 +66,6 @@ pub struct CreateMemberInput {
     pub last_name: Option<String>,
     pub id_number: Option<String>,
     pub phone: String,
-    pub whatsapp_no: Option<String>,
     pub email: Option<String>,
     pub birth_date: Option<String>,
     pub notes: Option<String>,
@@ -83,8 +81,6 @@ pub struct UpdateMemberInput {
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub id_number: Option<Option<String>>,
     pub phone: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_nullable")]
-    pub whatsapp_no: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub email: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
@@ -198,6 +194,7 @@ pub struct Subscription {
     pub frozen_at: Option<String>,
     pub frozen_until: Option<String>,
     pub paid_amount_cents: i64,
+    pub discount_percent: i64,
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -208,7 +205,7 @@ pub struct CreateSubscriptionInput {
     pub member_id: i64,
     pub plan_id: i64,
     pub start_date: Option<String>,
-    pub paid_amount_cents: i64,
+    pub discount_percent: i64,
     pub notes: Option<String>,
 }
 
@@ -216,15 +213,21 @@ pub struct CreateSubscriptionInput {
 pub struct RenewSubscriptionInput {
     pub subscription_id: i64,
     pub plan_id: Option<i64>,
-    pub paid_amount_cents: i64,
+    pub discount_percent: i64,
     pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct UpdateSubscriptionInput {
     pub subscription_id: i64,
-    pub paid_amount_cents: i64,
+    pub discount_percent: i64,
     pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemberReport {
+    pub member: Member,
+    pub subscriptions: Vec<Subscription>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,8 +245,7 @@ mod tests {
     #[test]
     fn update_member_distinguishes_missing_and_null_fields() {
         let missing: UpdateMemberInput = serde_json::from_str(r#"{"id":1}"#).unwrap();
-        let cleared: UpdateMemberInput =
-            serde_json::from_str(r#"{"id":1,"email":null}"#).unwrap();
+        let cleared: UpdateMemberInput = serde_json::from_str(r#"{"id":1,"email":null}"#).unwrap();
 
         assert_eq!(missing.email, None);
         assert_eq!(cleared.email, Some(None));

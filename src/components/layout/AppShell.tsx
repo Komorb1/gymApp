@@ -8,6 +8,7 @@ import { SubscriptionsPage } from "@/features/subscriptions/SubscriptionsPage";
 import { PlansPage } from "@/features/plans/PlansPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ActivityLogPage } from "@/features/activity/ActivityLogPage";
+import { ReportsPage } from "@/features/reports/ReportsPage";
 import { useAuthStore } from "@/stores/auth";
 
 export function AppShell() {
@@ -28,7 +29,8 @@ export function AppShell() {
           {page === "subscriptions" && <SubscriptionsPage />}
           {page === "plans" && isManagement && <PlansPage />}
           {page === "activity" && <ActivityLogPage />}
-          {page === "settings" && isManagement && <SettingsPage />}
+          {page === "reports" && <ReportsPage />}
+          {page === "settings" && <SettingsPage />}
         </main>
       </div>
     </div>

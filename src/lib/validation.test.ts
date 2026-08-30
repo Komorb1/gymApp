@@ -8,7 +8,6 @@ const validMember = {
   last_name: "",
   id_number: "",
   phone: "+90 555 000 0000",
-  whatsapp_no: "",
   email: "",
   birth_date: "",
   notes: "",

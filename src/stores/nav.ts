@@ -5,6 +5,7 @@ export type Page =
   | "members"
   | "subscriptions"
   | "plans"
+  | "reports"
   | "settings"
   | "member-profile"
   | "activity";
@@ -18,6 +19,5 @@ interface NavState {
 export const useNavStore = create<NavState>((set) => ({
   page: "dashboard",
   memberId: null,
-  navigate: (page, memberId) =>
-    set({ page, memberId: memberId ?? null }),
+  navigate: (page, memberId) => set({ page, memberId: memberId ?? null }),
 }));

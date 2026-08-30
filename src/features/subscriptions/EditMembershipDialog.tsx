@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
-import { formatPrice, fullName, priceToCents } from "@/lib/format";
+import { formatPrice, fullName } from "@/lib/format";
 import type { Subscription } from "@/lib/ipc";
 
 interface EditMembershipDialogProps {
@@ -27,8 +27,8 @@ export function EditMembershipDialog({
 }: EditMembershipDialogProps) {
   const { t } = useTranslation();
   const updateMembership = useUpdateSubscription();
-  const [paidAmount, setPaidAmount] = useState(
-    formatPrice(subscription.paid_amount_cents),
+  const [discountPercent, setDiscountPercent] = useState(
+    String(subscription.discount_percent),
   );
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
@@ -39,7 +39,7 @@ export function EditMembershipDialog({
     updateMembership.mutate(
       {
         subscription_id: subscription.id,
-        paid_amount_cents: priceToCents(paidAmount),
+        discount_percent: Number(discountPercent),
         notes: notes || null,
       },
       {
@@ -64,16 +64,27 @@ export function EditMembershipDialog({
           </p>
           <div className="space-y-2">
             <Label className="font-cairo">
-              {t("subscriptions.paidAmount")}
+              {t("subscriptions.discountPercent")}
             </Label>
             <Input
               type="number"
               min={0}
-              step="0.01"
-              value={paidAmount}
-              onChange={(event) => setPaidAmount(event.target.value)}
+              max={100}
+              step="1"
+              value={discountPercent}
+              onChange={(event) => setDiscountPercent(event.target.value)}
               className="font-cairo"
             />
+            <p className="text-sm text-muted-foreground font-cairo">
+              {t("subscriptions.finalPrice")}:{" "}
+              {formatPrice(
+                Math.round(
+                  (subscription.plan_snapshot.price_cents *
+                    (100 - Number(discountPercent || 0))) /
+                    100,
+                ),
+              )}
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.notes")}</Label>

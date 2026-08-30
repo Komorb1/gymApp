@@ -34,7 +34,9 @@ fn validate_plan(name: &str, duration_days: i64, price_cents: i64) -> AppResult<
         return Err(AppError::Validation("Plan name is required".into()));
     }
     if duration_days <= 0 || price_cents < 0 {
-        return Err(AppError::Validation("Invalid plan duration or price".into()));
+        return Err(AppError::Validation(
+            "Invalid plan duration or price".into(),
+        ));
     }
     Ok(())
 }

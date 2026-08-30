@@ -196,6 +196,14 @@ export function UsersManagement() {
                           {t("settings.you")}
                         </Badge>
                       )}
+                      {u.is_owner && (
+                        <Badge
+                          variant="secondary"
+                          className="font-cairo text-xs"
+                        >
+                          {t("settings.owner")}
+                        </Badge>
+                      )}
                     </div>
                   </td>
                   <td className="p-3">
@@ -332,6 +340,7 @@ export function UsersManagement() {
               <Label className="font-cairo">{t("settings.accessLevel")}</Label>
               <select
                 value={formAccessLevel}
+                disabled={editUser?.is_owner}
                 onChange={(event) =>
                   setFormAccessLevel(event.target.value as AccessLevel)
                 }
@@ -341,7 +350,7 @@ export function UsersManagement() {
                 <option value="management">{t("settings.management")}</option>
               </select>
             </div>
-            {editUser && (
+            {editUser && !editUser.is_owner && (
               <Button
                 type="button"
                 variant={editUser.is_active ? "destructive" : "default"}

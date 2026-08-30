@@ -29,7 +29,6 @@ import {
   isExpired,
   isExpiringSoon,
   memberPhotoUrl,
-  paymentStatus,
 } from "@/lib/format";
 import type { Member, Subscription } from "@/lib/ipc";
 import { SubscribeDialog } from "./SubscribeDialog";
@@ -81,7 +80,7 @@ export function SubscriptionsPage() {
     renewMut.mutate({
       subscription_id: s.id,
       plan_id: s.plan_id,
-      paid_amount_cents: s.plan_snapshot.price_cents,
+      discount_percent: s.discount_percent,
       notes: null,
     });
   };
@@ -94,10 +93,6 @@ export function SubscriptionsPage() {
   };
 
   const renderRow = (s: Subscription) => {
-    const payment = paymentStatus(
-      s.paid_amount_cents,
-      s.plan_snapshot.price_cents,
-    );
     return (
       <tr
         key={s.id}
@@ -122,9 +117,6 @@ export function SubscriptionsPage() {
               </span>
               <p className="text-xs text-muted-foreground font-cairo">
                 {s.member_snapshot.phone}
-                {s.member_snapshot.whatsapp_no
-                  ? ` · ${s.member_snapshot.whatsapp_no}`
-                  : ""}
                 {s.member_snapshot.id_number
                   ? ` · ${s.member_snapshot.id_number}`
                   : ""}
@@ -158,10 +150,10 @@ export function SubscriptionsPage() {
                 : t(`subscriptions.${s.status}`)}
             </Badge>
             <Badge
-              variant={payment === "paid" ? "default" : "secondary"}
+              variant={s.discount_percent > 0 ? "default" : "secondary"}
               className="font-cairo"
             >
-              {t(`subscriptions.${payment}`)} ·{" "}
+              {t("subscriptions.discount")} {s.discount_percent}% ·{" "}
               {formatPrice(s.paid_amount_cents)}
             </Badge>
           </div>
@@ -230,8 +222,8 @@ export function SubscriptionsPage() {
   };
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+      <table className="w-full min-w-[1120px] text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -247,12 +239,12 @@ export function SubscriptionsPage() {
               {t("subscriptions.endDate")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.payment")}
+              {t("subscriptions.discount")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.notes")}
             </th>
-            <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
+            <th className="w-72 text-end font-medium text-muted-foreground p-3 font-cairo">
               {t("common.actions")}
             </th>
           </tr>

@@ -28,7 +28,6 @@ import {
   fullName,
   isExpired,
   memberPhotoUrl,
-  paymentStatus,
 } from "@/lib/format";
 import { SubscribeDialog } from "@/features/subscriptions/SubscribeDialog";
 import { EditMembershipDialog } from "@/features/subscriptions/EditMembershipDialog";
@@ -179,18 +178,14 @@ export function MemberProfile() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-cairo">{member.phone ?? "—"}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
-                  {t("members.whatsappNo")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-cairo">{member.whatsapp_no ?? "—"}</p>
+                <a
+                  href={`https://wa.me/${member.phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-cairo text-primary hover:underline"
+                >
+                  {member.phone}
+                </a>
               </CardContent>
             </Card>
 
@@ -295,10 +290,6 @@ export function MemberProfile() {
                     </thead>
                     <tbody>
                       {pagedSubs.map((s) => {
-                        const payment = paymentStatus(
-                          s.paid_amount_cents,
-                          s.plan_snapshot.price_cents,
-                        );
                         return (
                           <tr
                             key={s.id}
@@ -333,11 +324,14 @@ export function MemberProfile() {
                                 </Badge>
                                 <Badge
                                   variant={
-                                    payment === "paid" ? "default" : "secondary"
+                                    s.discount_percent > 0
+                                      ? "default"
+                                      : "secondary"
                                   }
                                   className="font-cairo"
                                 >
-                                  {t(`subscriptions.${payment}`)} ·{" "}
+                                  {t("subscriptions.discount")}{" "}
+                                  {s.discount_percent}% ·{" "}
                                   {formatPrice(s.paid_amount_cents)}
                                 </Badge>
                               </div>
@@ -375,8 +369,7 @@ export function MemberProfile() {
                                         renewMut.mutate({
                                           subscription_id: s.id,
                                           plan_id: s.plan_id,
-                                          paid_amount_cents:
-                                            s.plan_snapshot.price_cents,
+                                          discount_percent: s.discount_percent,
                                           notes: null,
                                         })
                                       }

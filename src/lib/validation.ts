@@ -6,7 +6,6 @@ export const memberSchema = z.object({
   last_name: z.string().optional().nullable(),
   id_number: z.string().optional().nullable(),
   phone: z.string().min(1, "Phone number is required"),
-  whatsapp_no: z.string().optional().nullable(),
   email: z
     .string()
     .email("Invalid email")
