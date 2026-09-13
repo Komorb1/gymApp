@@ -196,6 +196,11 @@ pub struct Subscription {
     pub paid_amount_cents: i64,
     pub discount_percent: i64,
     pub is_paid: bool,
+    pub discount_requested_by_user_id: Option<i64>,
+    pub discount_approval_status: Option<String>,
+    pub discount_reviewed_by_user_id: Option<i64>,
+    pub discount_reviewed_at: Option<String>,
+    pub renews_subscription_id: Option<i64>,
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -223,6 +228,9 @@ pub struct RenewSubscriptionInput {
 #[derive(Debug, Clone, Deserialize)]
 pub struct UpdateSubscriptionInput {
     pub subscription_id: i64,
+    pub plan_id: i64,
+    pub start_date: String,
+    pub end_date: String,
     pub discount_percent: i64,
     pub is_paid: bool,
     pub notes: Option<String>,

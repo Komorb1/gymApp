@@ -58,6 +58,8 @@ pub fn run() {
             commands::subscriptions::unfreeze_subscription,
             commands::subscriptions::cancel_subscription,
             commands::subscriptions::update_subscription,
+            commands::subscriptions::approve_subscription_discount,
+            commands::subscriptions::reject_subscription_discount,
             commands::subscriptions::get_dashboard_stats,
             commands::activity::list_activity_logs,
         ])

@@ -34,6 +34,7 @@ import { EditMembershipDialog } from "@/features/subscriptions/EditMembershipDia
 import { MemberForm } from "./MemberForm";
 import type { Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
+import { showDiscount } from "@/lib/subscriptionView";
 
 const flagLabels: Record<string, string> = {
   medical: "Medical",
@@ -311,7 +312,8 @@ export function MemberProfile() {
                                     s.status === "active" &&
                                     !isExpired(s.end_date)
                                       ? "success"
-                                      : s.status === "frozen"
+                                      : s.status === "frozen" ||
+                                          s.status === "pending"
                                         ? "warning"
                                         : "destructive"
                                   }
@@ -332,18 +334,18 @@ export function MemberProfile() {
                                     `subscriptions.${s.is_paid ? "paid" : "unpaid"}`,
                                   )}
                                 </Badge>
-                                <Badge
-                                  variant={
-                                    s.discount_percent > 0
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                  className="font-cairo"
-                                >
-                                  {t("subscriptions.discount")}{" "}
-                                  {s.discount_percent}% ·{" "}
+                                {showDiscount(s.discount_percent) && (
+                                  <Badge
+                                    variant="default"
+                                    className="font-cairo"
+                                  >
+                                    {t("subscriptions.discount")}{" "}
+                                    {s.discount_percent}%
+                                  </Badge>
+                                )}
+                                <span className="font-semibold font-cairo">
                                   {formatPrice(s.paid_amount_cents)}
-                                </Badge>
+                                </span>
                               </div>
                             </td>
                             <td className="p-3 font-cairo text-muted-foreground max-w-36 truncate">
@@ -370,7 +372,7 @@ export function MemberProfile() {
                                       {t("subscriptions.unfreeze")}
                                     </Button>
                                   ) : null
-                                ) : s.status !== "cancelled" ? (
+                                ) : s.status === "active" ? (
                                   <>
                                     <Button
                                       variant="outline"

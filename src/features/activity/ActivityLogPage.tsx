@@ -111,6 +111,9 @@ export function ActivityLogPage() {
     if (field === "status" && typeof value === "string") {
       return t(`subscriptions.${value}`, { defaultValue: value });
     }
+    if (field === "discount_approval_status" && typeof value === "string") {
+      return t(`subscriptions.${value}`, { defaultValue: value });
+    }
     if (typeof value === "boolean") {
       return t(value ? "common.yes" : "common.no");
     }

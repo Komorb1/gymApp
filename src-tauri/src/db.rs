@@ -238,6 +238,57 @@ mod tests {
     }
 
     #[test]
+    fn schema_supports_pending_discount_approval() {
+        let conn = test_db();
+        let subscription_columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(subscriptions)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+
+        for expected in [
+            "discount_requested_by_user_id",
+            "discount_approval_status",
+            "discount_reviewed_by_user_id",
+            "discount_reviewed_at",
+            "renews_subscription_id",
+        ] {
+            assert!(
+                subscription_columns.contains(&expected.to_string()),
+                "missing subscription column: {expected}"
+            );
+        }
+
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '123', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO users (username, pin_hash, access_level) VALUES ('staff', 'hash', 'staff')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status, discount_percent,
+                discount_requested_by_user_id, discount_approval_status
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 'pending', 10, 1, 'pending')",
+            [],
+        )
+        .unwrap();
+    }
+
+    #[test]
     fn discount_percentage_constraint_is_enforced() {
         let conn = test_db();
         conn.execute(

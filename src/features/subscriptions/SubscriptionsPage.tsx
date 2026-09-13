@@ -19,6 +19,8 @@ import {
   useRenewSubscription,
   useUnfreezeSubscription,
   useCancelSubscription,
+  useApproveSubscriptionDiscount,
+  useRejectSubscriptionDiscount,
 } from "@/hooks/useSubscriptions";
 import { useMembers } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -27,7 +29,6 @@ import {
   formatPrice,
   fullName,
   isExpired,
-  isExpiringSoon,
   memberPhotoUrl,
 } from "@/lib/format";
 import type { Member, Subscription } from "@/lib/ipc";
@@ -35,6 +36,11 @@ import { SubscribeDialog } from "./SubscribeDialog";
 import { FreezeDialog } from "./FreezeDialog";
 import { EditMembershipDialog } from "./EditMembershipDialog";
 import { useAuthStore } from "@/stores/auth";
+import {
+  canReviewDiscount,
+  groupOperationalSubscriptions,
+  showDiscount,
+} from "@/lib/subscriptionView";
 
 export function SubscriptionsPage() {
   const { t } = useTranslation();
@@ -42,6 +48,8 @@ export function SubscriptionsPage() {
   const renewMut = useRenewSubscription();
   const unfreezeMut = useUnfreezeSubscription();
   const cancelMut = useCancelSubscription();
+  const approveMut = useApproveSubscriptionDiscount();
+  const rejectMut = useRejectSubscriptionDiscount();
   const isManagement = useAuthStore(
     (state) => state.user?.access_level === "management",
   );
@@ -55,26 +63,7 @@ export function SubscriptionsPage() {
   const debounced = useDebouncedValue(pickerSearch, 300);
   const { data: pickerMembers = [] } = useMembers(debounced);
 
-  const buckets = useMemo(() => {
-    const active: Subscription[] = [];
-    const expiring: Subscription[] = [];
-    const expired: Subscription[] = [];
-    const frozen: Subscription[] = [];
-    for (const s of subs) {
-      if (s.status === "cancelled") continue;
-      if (s.status === "frozen") {
-        frozen.push(s);
-      } else if (isExpired(s.end_date)) {
-        expired.push(s);
-      } else if (isExpiringSoon(s.end_date, 7)) {
-        expiring.push(s);
-        active.push(s);
-      } else {
-        active.push(s);
-      }
-    }
-    return { active, expiring, expired, frozen };
-  }, [subs]);
+  const buckets = useMemo(() => groupOperationalSubscriptions(subs), [subs]);
 
   const handleRenew = (s: Subscription) => {
     renewMut.mutate({
@@ -140,7 +129,7 @@ export function SubscriptionsPage() {
               variant={
                 s.status === "active" && !isExpired(s.end_date)
                   ? "success"
-                  : s.status === "frozen"
+                  : s.status === "frozen" || s.status === "pending"
                     ? "warning"
                     : "destructive"
               }
@@ -156,13 +145,14 @@ export function SubscriptionsPage() {
             >
               {t(`subscriptions.${s.is_paid ? "paid" : "unpaid"}`)}
             </Badge>
-            <Badge
-              variant={s.discount_percent > 0 ? "default" : "secondary"}
-              className="font-cairo"
-            >
-              {t("subscriptions.discount")} {s.discount_percent}% ·{" "}
+            {showDiscount(s.discount_percent) && (
+              <Badge variant="default" className="font-cairo">
+                {t("subscriptions.discount")} {s.discount_percent}%
+              </Badge>
+            )}
+            <span className="text-sm font-semibold font-cairo">
               {formatPrice(s.paid_amount_cents)}
-            </Badge>
+            </span>
           </div>
         </td>
         <td className="p-3 font-cairo text-muted-foreground max-w-40 truncate">
@@ -170,6 +160,27 @@ export function SubscriptionsPage() {
         </td>
         <td className="p-3">
           <div className="flex items-center justify-end gap-1 flex-wrap">
+            {isManagement && canReviewDiscount(s) && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => approveMut.mutate(s.id)}
+                  disabled={approveMut.isPending || rejectMut.isPending}
+                  className="font-cairo"
+                >
+                  {t("subscriptions.approveDiscount")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => rejectMut.mutate(s.id)}
+                  disabled={approveMut.isPending || rejectMut.isPending}
+                  className="font-cairo"
+                >
+                  {t("subscriptions.rejectDiscount")}
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -189,7 +200,7 @@ export function SubscriptionsPage() {
                   {t("subscriptions.unfreeze")}
                 </Button>
               ) : null
-            ) : s.status !== "cancelled" ? (
+            ) : s.status === "active" ? (
               <>
                 {isManagement && (
                   <Button
@@ -313,6 +324,9 @@ export function SubscriptionsPage() {
             <TabsTrigger value="frozen" className="font-cairo">
               {t("subscriptions.tabs.frozen")} ({buckets.frozen.length})
             </TabsTrigger>
+            <TabsTrigger value="pending" className="font-cairo">
+              {t("subscriptions.tabs.pending")} ({buckets.pending.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active">
@@ -326,6 +340,9 @@ export function SubscriptionsPage() {
           </TabsContent>
           <TabsContent value="frozen">
             <Table rows={buckets.frozen} />
+          </TabsContent>
+          <TabsContent value="pending">
+            <Table rows={buckets.pending} />
           </TabsContent>
         </Tabs>
       )}

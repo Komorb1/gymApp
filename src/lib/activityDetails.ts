@@ -17,6 +17,10 @@ const hiddenFields = new Set([
   "photo_path",
   "whatsapp_no",
   "frozen_at",
+  "discount_requested_by_user_id",
+  "discount_reviewed_by_user_id",
+  "discount_reviewed_at",
+  "renews_subscription_id",
 ]);
 
 function parseDetails(details: string | null): Record<string, unknown> | null {
@@ -105,6 +109,12 @@ export function activityChanges(
   return keys
     .filter(
       (field) => (before.get(field) ?? null) !== (after.get(field) ?? null),
+    )
+    .filter(
+      (field) =>
+        field !== "discount_percent" ||
+        Number(before.get(field) ?? 0) > 0 ||
+        Number(after.get(field) ?? 0) > 0,
     )
     .map((field) => ({
       field,

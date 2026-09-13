@@ -76,7 +76,8 @@
       "note": "Flag note",
       "gym_name": "Gym name",
       "gym_address": "Gym address",
-      "gym_phone": "Gym phone"
+      "gym_phone": "Gym phone",
+      "discount_approval_status": "Discount approval"
     },
     "actions": {
       "member.create": "Member Created",
@@ -93,6 +94,8 @@
       "subscription.unfreeze": "Subscription Unfrozen",
       "subscription.cancel": "Subscription Cancelled",
       "subscription.update": "Membership Updated",
+      "subscription.approve_discount": "Discount Approved",
+      "subscription.reject_discount": "Discount Rejected",
       "auth.login": "User Signed In",
       "user.create": "User Created",
       "user.update": "User Updated",
@@ -171,6 +174,9 @@
     "expired": "Expired",
     "frozen": "Frozen",
     "cancelled": "Cancelled",
+    "pending": "Pending approval",
+    "approved": "Approved",
+    "rejected": "Rejected",
     "paid": "Paid",
     "partial": "Partially paid",
     "unpaid": "Unpaid",
@@ -189,11 +195,15 @@
     "subscribeMember": "Subscribe Member",
     "noActiveSubs": "No active subscriptions",
     "cancelConfirm": "Cancel this subscription?",
+    "approveDiscount": "Approve discount",
+    "rejectDiscount": "Reject discount",
+    "discountPendingNotice": "This membership will remain inactive until management approves the discount.",
     "tabs": {
       "active": "Active",
       "expiring": "Expiring (7d)",
       "expired": "Expired",
-      "frozen": "Frozen"
+      "frozen": "Frozen",
+      "pending": "Pending approval"
     }
   },
   "settings": {
@@ -224,7 +234,20 @@
     "empty": "No report data found",
     "deletedMember": "Deleted member",
     "subscriptionsCount": "subscriptions",
-    "noSubscriptions": "This member has no subscriptions"
+    "noSubscriptions": "This member has no subscriptions",
+    "noMatchingSubscriptions": "No memberships match these filters",
+    "viewReport": "View Report",
+    "memberFilter": "Filter members",
+    "detailSearchPlaceholder": "Search memberships by plan or notes...",
+    "statusFilter": "Filter memberships by status",
+    "paymentFilter": "Filter memberships by payment status",
+    "filters": {
+      "all": "All members",
+      "active": "Active members",
+      "deleted": "Deleted members",
+      "allStatuses": "All statuses",
+      "allPayments": "All payment statuses"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
