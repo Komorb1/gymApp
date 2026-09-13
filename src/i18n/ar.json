@@ -76,7 +76,8 @@
       "note": "ملاحظة الوسم",
       "gym_name": "اسم النادي",
       "gym_address": "عنوان النادي",
-      "gym_phone": "هاتف النادي"
+      "gym_phone": "هاتف النادي",
+      "discount_approval_status": "اعتماد الخصم"
     },
     "actions": {
       "member.create": "إنشاء عضو",
@@ -93,6 +94,8 @@
       "subscription.unfreeze": "فك تجميد اشتراك",
       "subscription.cancel": "إلغاء اشتراك",
       "subscription.update": "تعديل الاشتراك",
+      "subscription.approve_discount": "اعتماد الخصم",
+      "subscription.reject_discount": "رفض الخصم",
       "auth.login": "تسجيل دخول مستخدم",
       "user.create": "إنشاء مستخدم",
       "user.update": "تعديل مستخدم",
@@ -171,6 +174,9 @@
     "expired": "منتهي",
     "frozen": "مجمّد",
     "cancelled": "ملغي",
+    "pending": "بانتظار الموافقة",
+    "approved": "معتمد",
+    "rejected": "مرفوض",
     "paid": "مدفوع",
     "partial": "مدفوع جزئيًا",
     "unpaid": "غير مدفوع",
@@ -189,11 +195,15 @@
     "subscribeMember": "اشتراك عضو",
     "noActiveSubs": "لا توجد اشتراكات نشطة",
     "cancelConfirm": "إلغاء هذا الاشتراك؟",
+    "approveDiscount": "اعتماد الخصم",
+    "rejectDiscount": "رفض الخصم",
+    "discountPendingNotice": "سيبقى هذا الاشتراك غير نشط حتى توافق الإدارة على الخصم.",
     "tabs": {
       "active": "نشط",
       "expiring": "ينتهي خلال ٧ أيام",
       "expired": "منتهي",
-      "frozen": "مجمّد"
+      "frozen": "مجمّد",
+      "pending": "بانتظار الموافقة"
     }
   },
   "settings": {
@@ -224,7 +234,20 @@
     "empty": "لا توجد بيانات لعرضها",
     "deletedMember": "عضو محذوف",
     "subscriptionsCount": "اشتراك",
-    "noSubscriptions": "لا توجد اشتراكات لهذا العضو"
+    "noSubscriptions": "لا توجد اشتراكات لهذا العضو",
+    "noMatchingSubscriptions": "لا توجد اشتراكات تطابق عوامل التصفية",
+    "viewReport": "عرض التقرير",
+    "memberFilter": "تصفية الأعضاء",
+    "detailSearchPlaceholder": "ابحث في الاشتراكات بالباقة أو الملاحظات...",
+    "statusFilter": "تصفية الاشتراكات حسب الحالة",
+    "paymentFilter": "تصفية الاشتراكات حسب حالة الدفع",
+    "filters": {
+      "all": "جميع الأعضاء",
+      "active": "الأعضاء النشطون",
+      "deleted": "الأعضاء المحذوفون",
+      "allStatuses": "جميع الحالات",
+      "allPayments": "جميع حالات الدفع"
+    }
   },
   "dashboard": {
     "title": "الرئيسية",

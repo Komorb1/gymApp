@@ -140,12 +140,17 @@ export type Subscription = {
   plan_snapshot: PlanSnapshot;
   start_date: string;
   end_date: string;
-  status: "active" | "frozen" | "cancelled";
+  status: "active" | "frozen" | "cancelled" | "pending" | "rejected";
   frozen_at: string | null;
   frozen_until: string | null;
   paid_amount_cents: number;
   discount_percent: number;
   is_paid: boolean;
+  discount_requested_by_user_id: number | null;
+  discount_approval_status: "pending" | "approved" | "rejected" | null;
+  discount_reviewed_by_user_id: number | null;
+  discount_reviewed_at: string | null;
+  renews_subscription_id: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -170,6 +175,9 @@ export type RenewSubscriptionInput = {
 
 export type UpdateSubscriptionInput = {
   subscription_id: number;
+  plan_id: number;
+  start_date: string;
+  end_date: string;
   discount_percent: number;
   is_paid: boolean;
   notes?: string | null;
@@ -419,6 +427,26 @@ export function updateSubscription(
   input: UpdateSubscriptionInput,
 ): Promise<Subscription> {
   return invoke<Subscription>("update_subscription", { sessionToken, input });
+}
+
+export function approveSubscriptionDiscount(
+  sessionToken: string,
+  subscriptionId: number,
+): Promise<Subscription> {
+  return invoke<Subscription>("approve_subscription_discount", {
+    sessionToken,
+    subscriptionId,
+  });
+}
+
+export function rejectSubscriptionDiscount(
+  sessionToken: string,
+  subscriptionId: number,
+): Promise<Subscription> {
+  return invoke<Subscription>("reject_subscription_discount", {
+    sessionToken,
+    subscriptionId,
+  });
 }
 
 export function getDashboardStats(

@@ -16,6 +16,7 @@ import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
 import { formatPrice } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
+import { useAuthStore } from "@/stores/auth";
 
 interface SubscribeDialogProps {
   member: Member;
@@ -26,6 +27,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
   const { t } = useTranslation();
   const { data: plans = [] } = usePlans();
   const createMut = useCreateSubscription();
+  const isStaff = useAuthStore((state) => state.user?.access_level === "staff");
 
   const activePlans = plans.filter((p) => p.is_active);
   const [planId, setPlanId] = useState<number | null>(null);
@@ -145,6 +147,11 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                       100,
                   ),
                 )}
+              </p>
+            )}
+            {isStaff && Number(discountPercent) > 0 && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-cairo">
+                {t("subscriptions.discountPendingNotice")}
               </p>
             )}
           </div>

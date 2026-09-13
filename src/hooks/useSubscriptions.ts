@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  approveSubscriptionDiscount,
   cancelSubscription,
   createSubscription,
   freezeSubscription,
   getDashboardStats,
   listMemberSubscriptions,
   listSubscriptions,
+  rejectSubscriptionDiscount,
   renewSubscription,
   unfreezeSubscription,
   updateSubscription,
@@ -22,6 +24,7 @@ function useInvalidateMemberships() {
     queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
     queryClient.invalidateQueries({ queryKey: ["member-subscriptions"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["member-reports"] });
   };
 }
 
@@ -114,6 +117,26 @@ export function useCancelSubscription() {
   return useMutation({
     mutationFn: (subscriptionId: number) =>
       cancelSubscription(sessionToken, subscriptionId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useApproveSubscriptionDiscount() {
+  const sessionToken = useAuthStore((state) => state.sessionToken ?? "");
+  const invalidate = useInvalidateMemberships();
+  return useMutation({
+    mutationFn: (subscriptionId: number) =>
+      approveSubscriptionDiscount(sessionToken, subscriptionId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRejectSubscriptionDiscount() {
+  const sessionToken = useAuthStore((state) => state.sessionToken ?? "");
+  const invalidate = useInvalidateMemberships();
+  return useMutation({
+    mutationFn: (subscriptionId: number) =>
+      rejectSubscriptionDiscount(sessionToken, subscriptionId),
     onSuccess: invalidate,
   });
 }

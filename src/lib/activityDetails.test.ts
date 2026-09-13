@@ -3,6 +3,12 @@ import { describe, expect, it } from "vitest";
 import { activityChanges } from "./activityDetails";
 
 describe("activity change details", () => {
+  it("hides a zero discount when no discount exists", () => {
+    expect(
+      activityChanges(null, JSON.stringify({ discount_percent: 0 })),
+    ).toEqual([]);
+  });
+
   it("shows only meaningful fields that changed", () => {
     const before = JSON.stringify({
       id: 7,

@@ -1,127 +1,279 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  FileText,
-  Search,
-  Users,
-  CalendarDays,
-  BadgePercent,
-} from "lucide-react";
+import { ArrowLeft, FileText, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate, formatPrice, fullName, isExpired } from "@/lib/format";
-import { listMemberReports } from "@/lib/ipc";
+import {
+  listMemberReports,
+  type MemberReport,
+  type Subscription,
+} from "@/lib/ipc";
+import {
+  filterMemberReports,
+  filterReportSubscriptions,
+  showDiscount,
+  type ReportMemberFilter,
+  type ReportPaymentFilter,
+  type ReportSubscriptionStatusFilter,
+} from "@/lib/subscriptionView";
 import { useAuthStore } from "@/stores/auth";
+
+function statusVariant(subscription: Subscription) {
+  if (subscription.status === "active" && !isExpired(subscription.end_date)) {
+    return "success" as const;
+  }
+  if (subscription.status === "frozen" || subscription.status === "pending") {
+    return "warning" as const;
+  }
+  return "destructive" as const;
+}
 
 export function ReportsPage() {
   const { t } = useTranslation();
   const sessionToken = useAuthStore((state) => state.sessionToken ?? "");
   const [search, setSearch] = useState("");
+  const [memberFilter, setMemberFilter] = useState<ReportMemberFilter>("all");
+  const [selectedReport, setSelectedReport] = useState<MemberReport | null>(
+    null,
+  );
+  const [detailSearch, setDetailSearch] = useState("");
+  const [detailStatus, setDetailStatus] =
+    useState<ReportSubscriptionStatusFilter>("all");
+  const [detailPayment, setDetailPayment] =
+    useState<ReportPaymentFilter>("all");
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ["member-reports", sessionToken],
     queryFn: () => listMemberReports(sessionToken),
     enabled: !!sessionToken,
   });
-
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    if (!query) return reports;
-    return reports.filter(({ member, subscriptions }) =>
-      [
-        fullName(member),
-        member.phone,
-        member.id_number ?? "",
-        member.email ?? "",
-        ...subscriptions.map((subscription) => subscription.plan_snapshot.name),
-      ]
-        .join(" ")
-        .toLocaleLowerCase()
-        .includes(query),
-    );
-  }, [reports, search]);
-
-  const totals = useMemo(
-    () => ({
-      members: reports.length,
-      subscriptions: reports.reduce(
-        (sum, report) => sum + report.subscriptions.length,
-        0,
+  const filtered = filterMemberReports(reports, search, memberFilter);
+  const filteredSubscriptions = useMemo(
+    () =>
+      filterReportSubscriptions(
+        selectedReport?.subscriptions ?? [],
+        detailSearch,
+        detailStatus,
+        detailPayment,
       ),
-      discounts: reports.reduce(
-        (sum, report) =>
-          sum +
-          report.subscriptions.reduce(
-            (subscriptionSum, subscription) =>
-              subscriptionSum +
-              (subscription.plan_snapshot.price_cents -
-                subscription.paid_amount_cents),
-            0,
-          ),
-        0,
-      ),
-    }),
-    [reports],
+    [selectedReport, detailSearch, detailStatus, detailPayment],
   );
 
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <Users className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground font-cairo">
-                {t("reports.allMembers")}
-              </p>
-              <p className="text-2xl font-bold">{totals.members}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <CalendarDays className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground font-cairo">
-                {t("reports.allSubscriptions")}
-              </p>
-              <p className="text-2xl font-bold">{totals.subscriptions}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <BadgePercent className="h-8 w-8 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground font-cairo">
-                {t("reports.totalDiscounts")}
-              </p>
-              <p className="text-2xl font-bold">
-                {formatPrice(totals.discounts)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+  if (selectedReport) {
+    const { member, subscriptions } = selectedReport;
+    return (
+      <div className="space-y-5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSelectedReport(null)}
+          className="font-cairo"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("common.back")}
+        </Button>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold font-cairo">
+              {fullName(member)}
+            </h2>
+            <p className="text-sm text-muted-foreground font-cairo">
+              {member.phone}
+              {member.id_number ? ` · ${member.id_number}` : ""}
+            </p>
+          </div>
+          <Badge
+            variant={member.is_deleted ? "destructive" : "success"}
+            className="font-cairo"
+          >
+            {member.is_deleted
+              ? t("reports.deletedMember")
+              : t("members.active")}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-64 flex-1">
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={detailSearch}
+              onChange={(event) => setDetailSearch(event.target.value)}
+              placeholder={t("reports.detailSearchPlaceholder")}
+              aria-label={t("reports.detailSearchPlaceholder")}
+              className="ps-10 font-cairo"
+            />
+          </div>
+          <select
+            value={detailStatus}
+            onChange={(event) =>
+              setDetailStatus(
+                event.target.value as ReportSubscriptionStatusFilter,
+              )
+            }
+            aria-label={t("reports.statusFilter")}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">{t("reports.filters.allStatuses")}</option>
+            {[
+              "active",
+              "expired",
+              "frozen",
+              "cancelled",
+              "pending",
+              "rejected",
+            ].map((status) => (
+              <option key={status} value={status}>
+                {t(`subscriptions.${status}`)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={detailPayment}
+            onChange={(event) =>
+              setDetailPayment(event.target.value as ReportPaymentFilter)
+            }
+            aria-label={t("reports.paymentFilter")}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">{t("reports.filters.allPayments")}</option>
+            <option value="paid">{t("subscriptions.paid")}</option>
+            <option value="unpaid">{t("subscriptions.unpaid")}</option>
+          </select>
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                {[
+                  "plan",
+                  "startDate",
+                  "endDate",
+                  "status",
+                  "payment",
+                  "finalPrice",
+                  "notes",
+                ].map((key) => (
+                  <th
+                    key={key}
+                    className="p-3 text-start font-medium text-muted-foreground font-cairo"
+                  >
+                    {t(`subscriptions.${key}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSubscriptions.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="p-8 text-center text-muted-foreground font-cairo"
+                  >
+                    {t(
+                      subscriptions.length === 0
+                        ? "reports.noSubscriptions"
+                        : "reports.noMatchingSubscriptions",
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filteredSubscriptions.map((subscription) => (
+                  <tr key={subscription.id} className="border-t border-border">
+                    <td className="p-3 font-cairo">
+                      {subscription.plan_snapshot.name}
+                    </td>
+                    <td className="p-3 text-muted-foreground font-cairo">
+                      {formatDate(subscription.start_date)}
+                    </td>
+                    <td className="p-3 text-muted-foreground font-cairo">
+                      {formatDate(subscription.end_date)}
+                    </td>
+                    <td className="p-3">
+                      <Badge
+                        variant={statusVariant(subscription)}
+                        className="font-cairo"
+                      >
+                        {subscription.status === "active" &&
+                        isExpired(subscription.end_date)
+                          ? t("subscriptions.expired")
+                          : t(`subscriptions.${subscription.status}`)}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
+                      <Badge
+                        variant={
+                          subscription.is_paid ? "success" : "destructive"
+                        }
+                        className="font-cairo"
+                      >
+                        {t(
+                          `subscriptions.${subscription.is_paid ? "paid" : "unpaid"}`,
+                        )}
+                      </Badge>
+                    </td>
+                    <td className="p-3 font-cairo">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">
+                          {formatPrice(subscription.paid_amount_cents)}
+                        </span>
+                        {showDiscount(subscription.discount_percent) && (
+                          <Badge variant="secondary" className="font-cairo">
+                            {t("subscriptions.discount")}{" "}
+                            {subscription.discount_percent}%
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="max-w-56 p-3 text-muted-foreground font-cairo">
+                      {subscription.notes ?? "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+    );
+  }
 
-      <div className="relative max-w-lg">
-        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t("reports.searchPlaceholder")}
-          className="ps-10 font-cairo"
-        />
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold font-cairo">{t("nav.reports")}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-80 max-w-full">
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("reports.searchPlaceholder")}
+              className="ps-10 font-cairo"
+            />
+          </div>
+          <select
+            value={memberFilter}
+            onChange={(event) =>
+              setMemberFilter(event.target.value as ReportMemberFilter)
+            }
+            aria-label={t("reports.memberFilter")}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">{t("reports.filters.all")}</option>
+            <option value="active">{t("reports.filters.active")}</option>
+            <option value="deleted">{t("reports.filters.deleted")}</option>
+          </select>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[...Array(4)].map((_, index) => (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, index) => (
             <div
               key={index}
-              className="h-40 animate-pulse rounded-xl bg-muted"
+              className="h-14 animate-pulse rounded-lg bg-muted"
             />
           ))}
         </div>
@@ -131,138 +283,79 @@ export function ReportsPage() {
           <p className="font-cairo">{t("reports.empty")}</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filtered.map(({ member, subscriptions }) => (
-            <Card key={member.id} className="overflow-hidden">
-              <CardHeader className="border-b border-border bg-muted/20 pb-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <CardTitle className="font-cairo text-lg">
-                      {fullName(member)}
-                    </CardTitle>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground font-cairo">
-                      <a
-                        href={`https://wa.me/${member.phone.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        {member.phone}
-                      </a>
-                      {member.id_number && <span>· {member.id_number}</span>}
-                      <span>· {formatDate(member.created_at)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                  {t("subscriptions.member")}
+                </th>
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                  {t("members.phone")}
+                </th>
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                  {t("common.created")}
+                </th>
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                  {t("subscriptions.status")}
+                </th>
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                  {t("reports.allSubscriptions")}
+                </th>
+                <th className="p-3 text-end font-medium text-muted-foreground font-cairo">
+                  {t("common.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((report) => (
+                <tr
+                  key={report.member.id}
+                  className="border-t border-border hover:bg-muted/20"
+                >
+                  <td className="p-3 font-medium font-cairo">
+                    {fullName(report.member)}
+                  </td>
+                  <td className="p-3 text-muted-foreground font-cairo">
+                    {report.member.phone}
+                  </td>
+                  <td className="p-3 text-muted-foreground font-cairo">
+                    {formatDate(report.member.created_at)}
+                  </td>
+                  <td className="p-3">
                     <Badge
-                      variant={member.is_deleted ? "destructive" : "success"}
+                      variant={
+                        report.member.is_deleted ? "destructive" : "success"
+                      }
                       className="font-cairo"
                     >
-                      {member.is_deleted
+                      {report.member.is_deleted
                         ? t("reports.deletedMember")
                         : t("members.active")}
                     </Badge>
-                    <Badge variant="secondary" className="font-cairo">
-                      {subscriptions.length} {t("reports.subscriptionsCount")}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {subscriptions.length === 0 ? (
-                  <p className="p-5 text-sm text-muted-foreground font-cairo">
-                    {t("reports.noSubscriptions")}
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[760px] text-sm">
-                      <thead className="bg-muted/40">
-                        <tr>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.plan")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.startDate")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.endDate")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.status")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.payment")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.discount")}
-                          </th>
-                          <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
-                            {t("subscriptions.finalPrice")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {subscriptions.map((subscription) => (
-                          <tr
-                            key={subscription.id}
-                            className="border-t border-border"
-                          >
-                            <td className="p-3 font-cairo">
-                              {subscription.plan_snapshot.name}
-                            </td>
-                            <td className="p-3 text-muted-foreground font-cairo">
-                              {formatDate(subscription.start_date)}
-                            </td>
-                            <td className="p-3 text-muted-foreground font-cairo">
-                              {formatDate(subscription.end_date)}
-                            </td>
-                            <td className="p-3">
-                              <Badge
-                                variant={
-                                  subscription.status === "active" &&
-                                  !isExpired(subscription.end_date)
-                                    ? "success"
-                                    : subscription.status === "frozen"
-                                      ? "warning"
-                                      : "destructive"
-                                }
-                                className="font-cairo"
-                              >
-                                {subscription.status === "active" &&
-                                isExpired(subscription.end_date)
-                                  ? t("subscriptions.expired")
-                                  : t(`subscriptions.${subscription.status}`)}
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              <Badge
-                                variant={
-                                  subscription.is_paid
-                                    ? "success"
-                                    : "destructive"
-                                }
-                                className="font-cairo"
-                              >
-                                {t(
-                                  `subscriptions.${subscription.is_paid ? "paid" : "unpaid"}`,
-                                )}
-                              </Badge>
-                            </td>
-                            <td className="p-3 font-cairo">
-                              {subscription.discount_percent}%
-                            </td>
-                            <td className="p-3 font-semibold font-cairo">
-                              {formatPrice(subscription.paid_amount_cents)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  </td>
+                  <td className="p-3 font-cairo">
+                    {report.subscriptions.length}
+                  </td>
+                  <td className="p-3 text-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDetailSearch("");
+                        setDetailStatus("all");
+                        setDetailPayment("all");
+                        setSelectedReport(report);
+                      }}
+                      className="font-cairo"
+                    >
+                      {t("reports.viewReport")}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
