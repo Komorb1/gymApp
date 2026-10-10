@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -70,8 +70,7 @@ export function FreezeDialog({ subscription, onClose }: FreezeDialogProps) {
             <Label className="font-cairo">
               {t("subscriptions.freezePrompt")}
             </Label>
-            <Input
-              type="date"
+            <DateInput
               value={frozenUntil}
               onChange={(e) => setFrozenUntil(e.target.value)}
               className="font-cairo"

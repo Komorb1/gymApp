@@ -6,6 +6,7 @@ import { Loader2, Upload } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,7 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { memberSchema, type MemberFormData } from "@/lib/validation";
+import { memberSchema, digitsOnly, type MemberFormData } from "@/lib/validation";
 import { memberPhotoUrl } from "@/lib/format";
 import {
   useCreateMember,
@@ -76,6 +77,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
   const photoPath = member?.photo_path ?? null;
   const idNumberField = register("id_number");
+  const phoneField = register("phone");
   const today = new Date().toISOString().slice(0, 10);
 
   const pickPhoto = async () => {
@@ -204,9 +206,18 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("members.phone")}</Label>
-            <Input {...register("phone")} className="font-cairo" />
+            <Input
+              {...phoneField}
+              type="tel"
+              inputMode="numeric"
+              onChange={(event) => {
+                event.target.value = digitsOnly(event.target.value);
+                phoneField.onChange(event);
+              }}
+              className="font-cairo"
+            />
             <p className="text-xs text-muted-foreground font-cairo">
-              {t("members.phoneIsWhatsapp")}
+              {t("members.phoneIsWhatsapp")} {t("members.phoneDigitsOnly")}
             </p>
             {errors.phone && (
               <p className="text-xs text-destructive font-cairo">
@@ -253,9 +264,8 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("members.birthDate")}</Label>
-            <Input
+            <DateInput
               {...register("birth_date")}
-              type="date"
               max={today}
               className="font-cairo"
             />

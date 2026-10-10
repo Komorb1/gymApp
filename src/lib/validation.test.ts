@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { memberSchema } from "./validation";
+import {
+  MIN_PASSWORD_LENGTH,
+  digitsOnly,
+  memberSchema,
+  passwordSchema,
+} from "./validation";
 
 const validMember = {
   first_name: "Amina",
   middle_name: "",
   last_name: "",
   id_number: "",
-  phone: "+90 555 000 0000",
+  phone: "971555000000",
   email: "",
   birth_date: "",
   notes: "",
@@ -28,6 +33,12 @@ describe("member validation", () => {
 
   it("accepts optional member details", () => {
     expect(memberSchema.safeParse(validMember).success).toBe(true);
+  });
+
+  it("keeps the phone number to digits while typing", () => {
+    expect(digitsOnly("+971 55 500 0000")).toBe("971555000000");
+    expect(digitsOnly("055-500-0000")).toBe("0555000000");
+    expect(digitsOnly("971555000000")).toBe("971555000000");
   });
 
   it("requires an entered ID number to contain exactly 15 digits", () => {
@@ -55,5 +66,14 @@ describe("member validation", () => {
         birth_date: tomorrow.toISOString().slice(0, 10),
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("password validation", () => {
+  it("requires at least six characters", () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(6);
+    expect(passwordSchema.safeParse("").success).toBe(false);
+    expect(passwordSchema.safeParse("12345").success).toBe(false);
+    expect(passwordSchema.safeParse("123456").success).toBe(true);
   });
 });

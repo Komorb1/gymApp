@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { activityChanges, type ActivityValue } from "@/lib/activityDetails";
-import { formatDate, formatPrice } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import type { ActivityLog } from "@/lib/ipc";
 
 const actionColors: Record<
@@ -108,7 +108,7 @@ export function ActivityLogPage() {
         field === "paid_amount_cents" ||
         field === "unpaid_amount_cents")
     ) {
-      return formatPrice(value);
+      return formatMoney(value);
     }
     if (field === "is_paid" && typeof value === "boolean") {
       return t(`subscriptions.${value ? "paid" : "unpaid"}`);

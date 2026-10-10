@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { planSchema, type PlanFormData } from "@/lib/validation";
-import { priceToCents, formatPrice } from "@/lib/format";
+import { priceToCents, formatPrice, currencySymbol } from "@/lib/format";
 import { useCreatePlan, useUpdatePlan } from "@/hooks/usePlans";
 import type { Plan } from "@/lib/ipc";
 
@@ -111,16 +111,21 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("plans.price")}</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              value={priceDisplay}
-              onChange={(e) => {
-                setPriceDisplay(e.target.value);
-              }}
-              className="font-cairo"
-            />
+            <div className="relative">
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                value={priceDisplay}
+                onChange={(e) => {
+                  setPriceDisplay(e.target.value);
+                }}
+                className="font-cairo pe-16"
+              />
+              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-cairo">
+                {currencySymbol()}
+              </span>
+            </div>
           </div>
 
           <DialogFooter>

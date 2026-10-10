@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDate, formatPrice, fullName, isExpired } from "@/lib/format";
+import { formatDate, formatMoney, fullName, isExpired } from "@/lib/format";
 import {
   listMemberReports,
   type MemberReport,
@@ -222,8 +222,8 @@ export function ReportsPage() {
                     <td className="p-3 font-cairo">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
-                          {formatPrice(subscription.paid_amount_cents)} /{" "}
-                          {formatPrice(subscription.final_price_cents)}
+                          {formatMoney(subscription.paid_amount_cents)} /{" "}
+                          {formatMoney(subscription.final_price_cents)}
                         </span>
                         {showDiscount(subscription.discount_percent) && (
                           <Badge variant="secondary" className="font-cairo">

@@ -1,4 +1,4 @@
-import type { MemberReport, Subscription } from "./ipc";
+import type { MemberReport, Plan, Subscription } from "./ipc";
 import { fullName } from "./format";
 
 export type OperationalSubscriptionGroups = {
@@ -61,6 +61,27 @@ export function groupOperationalSubscriptions(
 
 export function showDiscount(discountPercent: number): boolean {
   return discountPercent > 0;
+}
+
+export function membershipPlanPriceCents(
+  subscription: Subscription,
+  plans: Plan[],
+  selectedPlanId: number,
+): number {
+  if (selectedPlanId === subscription.plan_id) {
+    return subscription.plan_snapshot.price_cents;
+  }
+  return (
+    plans.find((plan) => plan.id === selectedPlanId)?.price_cents ??
+    subscription.plan_snapshot.price_cents
+  );
+}
+
+export function discountedPriceCents(
+  priceCents: number,
+  discountPercent: number,
+): number {
+  return Math.round((priceCents * (100 - discountPercent)) / 100);
 }
 
 export function canReviewDiscount(subscription: Subscription): boolean {

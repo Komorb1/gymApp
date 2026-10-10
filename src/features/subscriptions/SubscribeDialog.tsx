@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
-import { formatPrice } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
@@ -125,7 +126,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                   >
                     <span>{p.name}</span>
                     <span className="text-sm text-muted-foreground">
-                      {p.duration_days}d · {formatPrice(p.price_cents)}
+                      {p.duration_days}d · {formatMoney(p.price_cents)}
                     </span>
                   </button>
                 ))}
@@ -135,8 +136,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.startDate")}</Label>
-            <Input
-              type="date"
+            <DateInput
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="font-cairo"
@@ -158,7 +158,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
             />
             {planId && (
               <p className="text-sm text-muted-foreground font-cairo">
-                {t("subscriptions.finalPrice")}: {formatPrice(finalPriceCents)}
+                {t("subscriptions.finalPrice")}: {formatMoney(finalPriceCents)}
               </p>
             )}
             {isStaff && Number(discountPercent) > 0 && (
@@ -182,8 +182,8 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.unpaidAmount")}:{" "}
-              {formatPrice(unpaidAmountCents)}
+              {t("subscriptions.balanceAmount")}:{" "}
+              {formatMoney(unpaidAmountCents)}
             </p>
           </div>
 

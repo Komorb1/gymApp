@@ -238,13 +238,6 @@ export function loginUser(
   return invoke<AuthSession>("login", { username, password });
 }
 
-export function registerStaff(
-  username: string,
-  password: string,
-): Promise<AuthSession> {
-  return invoke<AuthSession>("register_staff", { username, password });
-}
-
 export function logoutUser(sessionToken: string): Promise<void> {
   return invoke<void>("logout", { sessionToken });
 }

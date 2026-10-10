@@ -4,12 +4,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { usePlans, useUpdatePlan, useDeletePlan } from "@/hooks/usePlans";
-import { formatPrice } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import type { Plan } from "@/lib/ipc";
 import { PlanForm } from "./PlanForm";
 
@@ -118,12 +113,14 @@ export function PlansPage() {
                 <div className="space-y-1 text-sm">
                   <p className="font-cairo text-muted-foreground">
                     {t("plans.duration")}:{" "}
-                    <span className="text-foreground">{plan.duration_days}</span>
+                    <span className="text-foreground">
+                      {plan.duration_days}
+                    </span>
                   </p>
                   <p className="font-cairo text-muted-foreground">
                     {t("plans.price")}:{" "}
                     <span className="text-foreground text-lg font-semibold">
-                      {formatPrice(plan.price_cents)}
+                      {formatMoney(plan.price_cents)}
                     </span>
                   </p>
                 </div>
@@ -184,7 +181,9 @@ export function PlansPage() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-cairo">{t("common.delete")}</DialogTitle>
+            <DialogTitle className="font-cairo">
+              {t("common.delete")}
+            </DialogTitle>
             <DialogDescription className="font-cairo">
               {deleteTarget?.name}?
             </DialogDescription>

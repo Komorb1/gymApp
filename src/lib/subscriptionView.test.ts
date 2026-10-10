@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { MemberReport, Subscription } from "./ipc";
+import type { MemberReport, Plan, Subscription } from "./ipc";
 import {
   canReviewDiscount,
+  discountedPriceCents,
   filterMemberReports,
   filterReportSubscriptions,
   groupOperationalSubscriptions,
+  membershipPlanPriceCents,
   showDiscount,
 } from "./subscriptionView";
 
@@ -83,6 +85,47 @@ describe("subscription operational views", () => {
 
     expect(groups.pending).toEqual([pending]);
     expect(groups.expired).toEqual([]);
+  });
+});
+
+describe("membership editing prices", () => {
+  const plans: Plan[] = [
+    {
+      id: 1,
+      name: "Monthly",
+      duration_days: 30,
+      price_cents: 9000,
+      is_active: true,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-06-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      name: "Quarterly",
+      duration_days: 90,
+      price_cents: 24000,
+      is_active: true,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    },
+  ];
+
+  it("uses the stored plan price when the membership keeps its plan", () => {
+    const membership = subscription(1, 1, "active", "2026-12-01");
+
+    expect(membershipPlanPriceCents(membership, plans, 1)).toBe(5000);
+    expect(
+      discountedPriceCents(membershipPlanPriceCents(membership, plans, 1), 10),
+    ).toBe(4500);
+  });
+
+  it("uses the current plan price when the membership switches plan", () => {
+    const membership = subscription(1, 1, "active", "2026-12-01");
+
+    expect(membershipPlanPriceCents(membership, plans, 2)).toBe(24000);
+    expect(
+      discountedPriceCents(membershipPlanPriceCents(membership, plans, 2), 25),
+    ).toBe(18000);
   });
 });
 

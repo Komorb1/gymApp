@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Dumbbell, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
+import { GymLogo } from "@/components/brand/GymLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +14,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { setupFirstUser } from "@/lib/ipc";
+import { MIN_PASSWORD_LENGTH, passwordSchema } from "@/lib/validation";
 import { useAuthStore } from "@/stores/auth";
 import { applyTheme, applyLanguage } from "@/hooks/useSettings";
 
-export function SetupWizard() {
+interface SetupWizardProps {
+  onComplete: () => void;
+}
+
+export function SetupWizard({ onComplete }: SetupWizardProps) {
   const { t } = useTranslation();
   const setSession = useAuthStore((s) => s.setSession);
 
@@ -34,11 +40,15 @@ export function SetupWizard() {
     setError("");
 
     if (!username.trim()) {
-      setError(t("auth.username") + " — required");
+      setError(t("auth.usernameRequired"));
       return;
     }
     if (!password) {
       setError(t("auth.passwordRequired"));
+      return;
+    }
+    if (!passwordSchema.safeParse(password).success) {
+      setError(t("auth.passwordTooShort"));
       return;
     }
     if (password !== passwordConfirm) {
@@ -59,6 +69,7 @@ export function SetupWizard() {
         theme,
       );
       setSession(session);
+      onComplete();
     } catch (err) {
       setError(String(err));
     } finally {
@@ -71,9 +82,7 @@ export function SetupWizard() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Dumbbell className="w-7 h-7 text-primary" />
-            </div>
+            <GymLogo className="w-20 h-20" />
           </div>
           <CardTitle className="text-2xl font-cairo">
             {t("setup.welcome")}
@@ -121,6 +130,7 @@ export function SetupWizard() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="font-cairo"
                   autoComplete="new-password"
                 />
@@ -134,11 +144,15 @@ export function SetupWizard() {
                   type="password"
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="font-cairo"
                   autoComplete="new-password"
                 />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground font-cairo">
+              {t("auth.passwordHint", { count: MIN_PASSWORD_LENGTH })}
+            </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

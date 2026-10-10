@@ -9,6 +9,8 @@ use crate::error::{AppError, AppResult};
 use crate::models::{AuthSession, SetupStatus, User};
 use crate::session::{require_management, Sessions};
 
+const MIN_PASSWORD_LENGTH: usize = 6;
+
 fn hash_password(password: &str) -> AppResult<String> {
     let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default()
@@ -34,6 +36,11 @@ fn validate_credentials(username: &str, password: &str) -> AppResult<()> {
     }
     if password.is_empty() {
         return Err(AppError::Validation("Password is required".into()));
+    }
+    if password.chars().count() < MIN_PASSWORD_LENGTH {
+        return Err(AppError::Validation(format!(
+            "Password must be at least {MIN_PASSWORD_LENGTH} characters"
+        )));
     }
     Ok(())
 }
@@ -218,62 +225,6 @@ pub async fn login(
             rusqlite::params![id],
         )?;
         user_by_id(conn, id)
-    })?;
-    let session_token = sessions.issue(user.id)?;
-    Ok(AuthSession {
-        user,
-        session_token,
-    })
-}
-
-#[tauri::command]
-pub async fn register_staff(
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-    username: String,
-    password: String,
-) -> AppResult<AuthSession> {
-    validate_credentials(&username, &password)?;
-    let user = db.with_conn(|conn| {
-        let transaction = conn.transaction()?;
-        let owner_count: i64 = transaction.query_row(
-            "SELECT COUNT(*) FROM users WHERE is_owner = 1 AND is_deleted = 0",
-            [],
-            |row| row.get(0),
-        )?;
-        if owner_count == 0 {
-            return Err(AppError::Conflict(
-                "The gym owner must complete setup before staff can register".into(),
-            ));
-        }
-        let pin_hash = hash_password(&password)?;
-        transaction
-            .execute(
-                "INSERT INTO users (username, pin_hash, access_level) VALUES (?1, ?2, 'staff')",
-                rusqlite::params![username.trim(), pin_hash],
-            )
-            .map_err(|error| match error {
-                rusqlite::Error::SqliteFailure(sqlite_error, _)
-                    if sqlite_error.code == rusqlite::ErrorCode::ConstraintViolation =>
-                {
-                    AppError::Conflict("Username already exists".into())
-                }
-                other => AppError::Sqlite(other),
-            })?;
-        let user_id = transaction.last_insert_rowid();
-        let user = user_by_id(&transaction, user_id)?;
-        let after = serde_json::to_string(&user)?;
-        log_activity(
-            &transaction,
-            user_id,
-            "user.register",
-            Some("user"),
-            Some(user_id),
-            None,
-            Some(&after),
-        )?;
-        transaction.commit()?;
-        Ok(user)
     })?;
     let session_token = sessions.issue(user.id)?;
     Ok(AuthSession {
@@ -516,8 +467,9 @@ mod tests {
     };
 
     #[test]
-    fn password_accepts_any_non_empty_text() {
-        assert!(validate_credentials("user", "a").is_ok());
+    fn password_requires_six_characters() {
+        assert!(validate_credentials("user", "abcde").is_err());
+        assert!(validate_credentials("user", "abcdef").is_ok());
         assert!(validate_credentials("user", "words and symbols !@#$").is_ok());
         assert!(validate_credentials("user", "").is_err());
     }

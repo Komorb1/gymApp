@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Dumbbell, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
+import { GymLogo } from "@/components/brand/GymLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { loginUser, registerStaff } from "@/lib/ipc";
+import { loginUser } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
 export function Login() {
@@ -15,8 +16,6 @@ export function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -32,15 +31,9 @@ export function Login() {
       setError(t("auth.credentialsRequired"));
       return;
     }
-    if (isRegistering && password !== confirmPassword) {
-      setError(t("auth.passwordMismatch"));
-      return;
-    }
     setLoading(true);
     try {
-      const session = isRegistering
-        ? await registerStaff(username.trim(), password)
-        : await loginUser(username.trim(), password);
+      const session = await loginUser(username.trim(), password);
       setSession(session);
     } catch (err) {
       setError(String(err));
@@ -54,12 +47,10 @@ export function Login() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Dumbbell className="w-7 h-7 text-primary" />
-            </div>
+            <GymLogo className="w-16 h-16" />
           </div>
           <CardTitle className="text-2xl font-cairo">
-            {t(isRegistering ? "auth.register" : "auth.login")}
+            {t("auth.login")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -87,26 +78,9 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="font-cairo"
-                autoComplete={
-                  isRegistering ? "new-password" : "current-password"
-                }
+                autoComplete="current-password"
               />
             </div>
-            {isRegistering && (
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password" className="font-cairo">
-                  {t("auth.confirmPassword")}
-                </Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="font-cairo"
-                  autoComplete="new-password"
-                />
-              </div>
-            )}
             {error && (
               <p className="text-sm text-destructive font-cairo">{error}</p>
             )}
@@ -116,19 +90,7 @@ export function Login() {
               disabled={loading}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t(isRegistering ? "auth.register" : "auth.login")}
-            </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="w-full font-cairo"
-              onClick={() => {
-                setIsRegistering((value) => !value);
-                setConfirmPassword("");
-                setError("");
-              }}
-            >
-              {t(isRegistering ? "auth.haveAccount" : "auth.createAccount")}
+              {t("auth.login")}
             </Button>
           </form>
         </CardContent>

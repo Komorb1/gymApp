@@ -29,7 +29,6 @@ pub fn run() {
             commands::auth::setup_status,
             commands::auth::setup_first_user,
             commands::auth::login,
-            commands::auth::register_staff,
             commands::auth::logout,
             commands::auth::list_users,
             commands::auth::create_user,

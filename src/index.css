@@ -77,6 +77,16 @@
   .dark select {
     color-scheme: dark;
   }
+  input[type="date"] {
+    color-scheme: light;
+  }
+  .dark input[type="date"] {
+    color-scheme: dark;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    cursor: pointer;
+  }
 }
 
 @layer components {

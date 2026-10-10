@@ -26,7 +26,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   formatDate,
-  formatPrice,
+  formatMoney,
   fullName,
   isExpired,
   memberPhotoUrl,
@@ -158,11 +158,22 @@ export function SubscriptionsPage() {
                 {t("subscriptions.discount")} {s.discount_percent}%
               </Badge>
             )}
-            <span className="text-sm font-semibold font-cairo">
-              {formatPrice(s.paid_amount_cents)} /{" "}
-              {formatPrice(s.final_price_cents)}
-            </span>
           </div>
+        </td>
+        <td className="p-3 font-cairo font-semibold">
+          {formatMoney(s.paid_amount_cents)}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground">
+          {formatMoney(s.final_price_cents)}
+        </td>
+        <td
+          className={`p-3 font-cairo ${
+            s.unpaid_amount_cents > 0
+              ? "text-destructive font-semibold"
+              : "text-muted-foreground"
+          }`}
+        >
+          {formatMoney(s.unpaid_amount_cents)}
         </td>
         <td className="p-3 font-cairo text-muted-foreground max-w-40 truncate">
           {s.notes ?? "—"}
@@ -252,7 +263,7 @@ export function SubscriptionsPage() {
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[1120px] text-sm">
+      <table className="w-full min-w-[1320px] text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -268,7 +279,16 @@ export function SubscriptionsPage() {
               {t("subscriptions.endDate")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.paymentAndPrice")}
+              {t("subscriptions.status")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.paidAmount")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.planPrice")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.balanceAmount")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.notes")}
@@ -282,7 +302,7 @@ export function SubscriptionsPage() {
           {rows.length === 0 ? (
             <tr>
               <td
-                colSpan={7}
+                colSpan={10}
                 className="p-6 text-center text-muted-foreground font-cairo"
               >
                 {t("subscriptions.noActiveSubs")}

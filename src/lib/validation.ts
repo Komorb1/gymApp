@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const MIN_PASSWORD_LENGTH = 6;
+
+export const passwordSchema = z
+  .string()
+  .min(MIN_PASSWORD_LENGTH, "Password is too short");
+
+export function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 export const memberSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional().nullable(),

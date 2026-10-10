@@ -10,11 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
-import { formatPrice, fullName } from "@/lib/format";
+import { formatMoney, fullName } from "@/lib/format";
+import {
+  discountedPriceCents,
+  membershipPlanPriceCents,
+} from "@/lib/subscriptionView";
 import type { Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
@@ -42,14 +47,17 @@ export function EditMembershipDialog({
   );
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
-  const selectedPlan =
-    plans.find((plan) => plan.id === Number(planId)) ??
-    subscription.plan_snapshot;
-  const finalPriceCents = Math.round(
-    (selectedPlan.price_cents * (100 - Number(discountPercent || 0))) / 100,
+  const planPriceCents = membershipPlanPriceCents(
+    subscription,
+    plans,
+    Number(planId),
+  );
+  const finalPriceCents = discountedPriceCents(
+    planPriceCents,
+    Number(discountPercent || 0),
   );
   const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
-  const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
+  const balanceAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -112,15 +120,17 @@ export function EditMembershipDialog({
                 </option>
               ))}
             </select>
+            <p className="text-sm text-muted-foreground font-cairo">
+              {t("subscriptions.planPrice")}: {formatMoney(planPriceCents)}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="membership-start" className="font-cairo">
                 {t("subscriptions.startDate")}
               </Label>
-              <Input
+              <DateInput
                 id="membership-start"
-                type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
                 required
@@ -130,9 +140,8 @@ export function EditMembershipDialog({
               <Label htmlFor="membership-end" className="font-cairo">
                 {t("subscriptions.endDate")}
               </Label>
-              <Input
+              <DateInput
                 id="membership-end"
-                type="date"
                 min={startDate}
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
@@ -154,7 +163,7 @@ export function EditMembershipDialog({
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.finalPrice")}: {formatPrice(finalPriceCents)}
+              {t("subscriptions.finalPrice")}: {formatMoney(finalPriceCents)}
             </p>
             {isStaff &&
               Number(discountPercent) > 0 &&
@@ -179,8 +188,8 @@ export function EditMembershipDialog({
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.unpaidAmount")}:{" "}
-              {formatPrice(unpaidAmountCents)}
+              {t("subscriptions.balanceAmount")}:{" "}
+              {formatMoney(balanceAmountCents)}
             </p>
           </div>
           <div className="space-y-2">

@@ -1,7 +1,20 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
+import i18n from "@/i18n/config";
+
+const CURRENCY_SYMBOL_AR = "د.إ";
+const CURRENCY_SYMBOL_EN = "AED";
+
+export function currencySymbol(language: string = i18n.language): string {
+  return language.startsWith("ar") ? CURRENCY_SYMBOL_AR : CURRENCY_SYMBOL_EN;
+}
+
 export function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+export function formatMoney(cents: number): string {
+  return `${formatPrice(cents)} ${currencySymbol()}`;
 }
 
 export function priceToCents(display: string): number {

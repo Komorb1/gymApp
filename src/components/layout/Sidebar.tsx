@@ -5,13 +5,13 @@ import {
   CalendarDays,
   ListChecks,
   Settings as SettingsIcon,
-  Dumbbell,
   LogOut,
   ScrollText,
   FileText,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { GymLogo } from "@/components/brand/GymLogo";
 import { useNavStore, type Page } from "@/stores/nav";
 import { useAuthStore } from "@/stores/auth";
 import { logoutUser } from "@/lib/ipc";
@@ -45,9 +45,7 @@ export function Sidebar() {
   return (
     <aside className="w-60 shrink-0 bg-card border-e border-border flex flex-col">
       <div className="h-14 flex items-center gap-2 px-4 border-b border-border">
-        <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shadow-sm shadow-primary/20">
-          <Dumbbell className="w-5 h-5 text-primary" />
-        </div>
+        <GymLogo className="w-8 h-8" />
         <span className="font-bold font-cairo text-lg">{t("app.name")}</span>
       </div>
 

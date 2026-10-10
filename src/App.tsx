@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dumbbell, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
+import { GymLogo } from "@/components/brand/GymLogo";
 import { fetchSetupStatus } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 import { useSettings } from "@/hooks/useSettings";
@@ -14,9 +15,7 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Dumbbell className="w-6 h-6 text-primary" />
-        </div>
+        <GymLogo className="w-14 h-14" />
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     </div>
@@ -30,19 +29,26 @@ function App() {
   useSettings();
 
   useEffect(() => {
+    if (user) return;
+    let cancelled = false;
+    setState((current) => (current === "setup" ? "checking" : current));
     async function check() {
       try {
         const status = await fetchSetupStatus();
-        setState(status.needs_setup ? "setup" : "login");
+        if (!cancelled) setState(status.needs_setup ? "setup" : "login");
       } catch {
-        setState("login");
+        if (!cancelled) setState("login");
       }
     }
     check();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   if (state === "checking") return <LoadingScreen />;
-  if (state === "setup" && !user) return <SetupWizard />;
+  if (state === "setup")
+    return <SetupWizard onComplete={() => setState("login")} />;
   if (!user) return <Login />;
   return <AppShell />;
 }

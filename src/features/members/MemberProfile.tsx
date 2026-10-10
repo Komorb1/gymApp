@@ -24,7 +24,7 @@ import {
 import { useNavStore } from "@/stores/nav";
 import {
   formatDate,
-  formatPrice,
+  formatMoney,
   fullName,
   isExpired,
   memberPhotoUrl,
@@ -361,8 +361,8 @@ export function MemberProfile() {
                                   </Badge>
                                 )}
                                 <span className="font-semibold font-cairo">
-                                  {formatPrice(s.paid_amount_cents)} /{" "}
-                                  {formatPrice(s.final_price_cents)}
+                                  {formatMoney(s.paid_amount_cents)} /{" "}
+                                  {formatMoney(s.final_price_cents)}
                                 </span>
                               </div>
                             </td>

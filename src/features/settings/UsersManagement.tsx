@@ -22,6 +22,7 @@ import {
   type AccessLevel,
   type User,
 } from "@/lib/ipc";
+import { MIN_PASSWORD_LENGTH, passwordSchema } from "@/lib/validation";
 import { useAuthStore } from "@/stores/auth";
 
 export function UsersManagement() {
@@ -109,11 +110,15 @@ export function UsersManagement() {
     e.preventDefault();
     setFormError("");
     if (!formUsername.trim()) {
-      setFormError(t("auth.username") + " — required");
+      setFormError(t("auth.usernameRequired"));
       return;
     }
     if (!formPassword) {
       setFormError(t("auth.passwordRequired"));
+      return;
+    }
+    if (!passwordSchema.safeParse(formPassword).success) {
+      setFormError(t("auth.passwordTooShort"));
       return;
     }
     createMut.mutate({
@@ -128,7 +133,14 @@ export function UsersManagement() {
     setFormError("");
     if (!editUser) return;
     if (!formUsername.trim()) {
-      setFormError(t("auth.username") + " — required");
+      setFormError(t("auth.usernameRequired"));
+      return;
+    }
+    if (
+      formPassword.length > 0 &&
+      !passwordSchema.safeParse(formPassword).success
+    ) {
+      setFormError(t("auth.passwordTooShort"));
       return;
     }
     updateMut.mutate({
@@ -272,8 +284,12 @@ export function UsersManagement() {
                 type="password"
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
+                minLength={MIN_PASSWORD_LENGTH}
                 className="font-cairo"
               />
+              <p className="text-xs text-muted-foreground font-cairo">
+                {t("auth.passwordHint", { count: MIN_PASSWORD_LENGTH })}
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="font-cairo">{t("settings.accessLevel")}</Label>
@@ -339,6 +355,7 @@ export function UsersManagement() {
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
                 placeholder={t("settings.keepPassword")}
+                minLength={MIN_PASSWORD_LENGTH}
                 className="font-cairo"
               />
             </div>

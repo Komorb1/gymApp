@@ -60,6 +60,40 @@ fn validate_member(first_name: &str, phone: &str) -> AppResult<()> {
     Ok(())
 }
 
+fn validate_phone_digits(phone: &str) -> AppResult<()> {
+    if !phone
+        .trim()
+        .chars()
+        .all(|character| character.is_ascii_digit())
+    {
+        return Err(AppError::Validation(
+            "Phone number must contain digits only".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_phone_is_unique(
+    conn: &rusqlite::Connection,
+    phone: &str,
+    excluded_member_id: Option<i64>,
+) -> AppResult<()> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM members
+         WHERE is_deleted = 0
+           AND phone = ?1
+           AND (?2 IS NULL OR id != ?2)",
+        rusqlite::params![phone.trim(), excluded_member_id],
+        |row| row.get(0),
+    )?;
+    if count > 0 {
+        return Err(AppError::Conflict(
+            "This WhatsApp number is already registered for another member".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn validate_member_details(id_number: Option<&str>, birth_date: Option<&str>) -> AppResult<()> {
     if let Some(id_number) = id_number.filter(|value| !value.trim().is_empty()) {
         if id_number.len() != 15
@@ -193,10 +227,12 @@ pub async fn create_member(
     input: CreateMemberInput,
 ) -> AppResult<Member> {
     validate_member(&input.first_name, &input.phone)?;
+    validate_phone_digits(&input.phone)?;
     validate_member_details(input.id_number.as_deref(), input.birth_date.as_deref())?;
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
+        ensure_phone_is_unique(&transaction, &input.phone, None)?;
         transaction.execute(
             "INSERT INTO members (
                 first_name, middle_name, last_name, id_number, phone,
@@ -250,6 +286,11 @@ pub async fn update_member(
             .unwrap_or_else(|| before.first_name.clone());
         let phone = input.phone.unwrap_or_else(|| before.phone.clone());
         validate_member(&first_name, &phone)?;
+        let phone_changed = phone.trim() != before.phone.trim();
+        if phone_changed {
+            validate_phone_digits(&phone)?;
+            ensure_phone_is_unique(&transaction, &phone, Some(input.id))?;
+        }
         let middle_name = input.middle_name.unwrap_or(before.middle_name.clone());
         let last_name = input.last_name.unwrap_or_else(|| before.last_name.clone());
         let id_number = input.id_number.unwrap_or(before.id_number.clone());
@@ -522,9 +563,46 @@ pub async fn list_member_reports(
 
 #[cfg(test)]
 mod tests {
-    use super::{ensure_member_has_no_subscriptions, validate_member_details};
+    use super::{
+        ensure_member_has_no_subscriptions, ensure_phone_is_unique, validate_member,
+        validate_member_details, validate_phone_digits,
+    };
     use crate::db::migrations;
     use rusqlite::Connection;
+
+    #[test]
+    fn member_phone_requires_digits_only() {
+        assert!(validate_phone_digits("971555000000").is_ok());
+        assert!(validate_phone_digits("+971 55 500 0000").is_err());
+        assert!(validate_phone_digits("055-500-0000").is_err());
+    }
+
+    #[test]
+    fn member_requires_first_name_and_phone() {
+        assert!(validate_member("Amina", "971555000000").is_ok());
+        assert!(validate_member("", "971555000000").is_err());
+        assert!(validate_member("Amina", " ").is_err());
+    }
+
+    #[test]
+    fn member_phone_must_be_unique_among_active_members() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '971555000000', '971555000000')",
+            [],
+        )
+        .unwrap();
+
+        assert!(ensure_phone_is_unique(&conn, "971555000000", None).is_err());
+        assert!(ensure_phone_is_unique(&conn, "971555000000", Some(1)).is_ok());
+        assert!(ensure_phone_is_unique(&conn, "971555000001", None).is_ok());
+
+        conn.execute("UPDATE members SET is_deleted = 1 WHERE id = 1", [])
+            .unwrap();
+        assert!(ensure_phone_is_unique(&conn, "971555000000", None).is_ok());
+    }
 
     #[test]
     fn member_details_reject_invalid_id_and_future_birth_date() {
