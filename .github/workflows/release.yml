@@ -86,15 +86,13 @@ jobs:
             Unsigned ${{ github.ref_name }} test build for Windows reception desks. Windows SmartScreen may show an unknown publisher warning.
 
             ### Changes in ${{ github.ref_name }}
-            - The sign-in screen, first-time setup, loading screen, and sidebar now use the gym logo
-            - Prices and payments show the dirham symbol in both Arabic and English
-            - The subscriptions list separates Paid Amount, Plan Price, and the new Balance Amount column
-            - Editing a membership keeps the plan price it was sold at, even after the plan's price changes
-            - Signing out after first-time setup returns to the sign-in screen instead of the setup form
-            - Passwords must be at least 6 characters for the first account and for new staff accounts
-            - Member WhatsApp numbers accept digits only and cannot be duplicated between members
-            - Date fields are readable in dark mode and open the picker from anywhere in the field
-            - Staff self-registration was removed from the sign-in screen; management adds staff in Settings
+            - Member details subscriptions table fits every column and scrolls instead of clipping
+            - Password fields have a show/hide button that stays put
+            - Editing an expired or cancelled membership asks for confirmation after saving
+            - Expired memberships appear only for the last 30 days on the dashboard and subscriptions page
+            - The subscriptions page has a Partially Paid tab in place of Pending approval; pending discounts stay in Active
+            - The unpaid column is now named Un-paid Amount
+            - The gym name entered during setup replaces "GymApp" in the sidebar and the window title
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
