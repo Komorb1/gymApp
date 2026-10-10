@@ -201,16 +201,14 @@ export function SubscriptionsPage() {
                 </Button>
               </>
             )}
-            {!isExpired(s.end_date) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditTarget(s)}
-                className="font-cairo"
-              >
-                {t("common.edit")}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditTarget(s)}
+              className="font-cairo"
+            >
+              {t("common.edit")}
+            </Button>
             {s.status === "frozen" ? (
               isManagement ? (
                 <Button
@@ -288,7 +286,7 @@ export function SubscriptionsPage() {
               {t("subscriptions.planPrice")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.balanceAmount")}
+              {t("subscriptions.unpaidAmount")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.notes")}
@@ -355,8 +353,8 @@ export function SubscriptionsPage() {
             <TabsTrigger value="frozen" className="font-cairo">
               {t("subscriptions.tabs.frozen")} ({buckets.frozen.length})
             </TabsTrigger>
-            <TabsTrigger value="pending" className="font-cairo">
-              {t("subscriptions.tabs.pending")} ({buckets.pending.length})
+            <TabsTrigger value="partial" className="font-cairo">
+              {t("subscriptions.tabs.partial")} ({buckets.partial.length})
             </TabsTrigger>
           </TabsList>
 
@@ -367,13 +365,18 @@ export function SubscriptionsPage() {
             <Table rows={buckets.expiring} />
           </TabsContent>
           <TabsContent value="expired">
-            <Table rows={buckets.expired} />
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-cairo">
+                {t("subscriptions.expiredWindow")}
+              </p>
+              <Table rows={buckets.expired} />
+            </div>
           </TabsContent>
           <TabsContent value="frozen">
             <Table rows={buckets.frozen} />
           </TabsContent>
-          <TabsContent value="pending">
-            <Table rows={buckets.pending} />
+          <TabsContent value="partial">
+            <Table rows={buckets.partial} />
           </TabsContent>
         </Tabs>
       )}

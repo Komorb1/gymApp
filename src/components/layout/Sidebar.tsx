@@ -12,6 +12,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { GymLogo } from "@/components/brand/GymLogo";
+import { useGymName } from "@/hooks/useGymName";
 import { useNavStore, type Page } from "@/stores/nav";
 import { useAuthStore } from "@/stores/auth";
 import { logoutUser } from "@/lib/ipc";
@@ -28,6 +29,7 @@ const navItems: { page: Page; icon: React.ElementType; key: string }[] = [
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const gymName = useGymName();
   const { page, navigate } = useNavStore();
   const user = useAuthStore((s) => s.user);
   const sessionToken = useAuthStore((s) => s.sessionToken);
@@ -46,7 +48,7 @@ export function Sidebar() {
     <aside className="w-60 shrink-0 bg-card border-e border-border flex flex-col">
       <div className="h-14 flex items-center gap-2 px-4 border-b border-border">
         <GymLogo className="w-8 h-8" />
-        <span className="font-bold font-cairo text-lg">{t("app.name")}</span>
+        <span className="font-bold font-cairo text-lg truncate">{gymName}</span>
       </div>
 
       <nav className="flex-1 p-2 space-y-1">

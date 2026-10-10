@@ -6,11 +6,28 @@ export type OperationalSubscriptionGroups = {
   expiring: Subscription[];
   expired: Subscription[];
   frozen: Subscription[];
-  pending: Subscription[];
+  partial: Subscription[];
 };
+
+export const EXPIRING_WINDOW_DAYS = 7;
+export const EXPIRED_WINDOW_DAYS = 30;
 
 function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function shiftedDate(date: Date, days: number): string {
+  const shifted = new Date(date);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return dateOnly(shifted);
+}
+
+function holdsCurrentMembership(subscription: Subscription, today: string) {
+  return (
+    subscription.status === "frozen" ||
+    subscription.status === "pending" ||
+    (subscription.status === "active" && subscription.end_date >= today)
+  );
 }
 
 export function groupOperationalSubscriptions(
@@ -18,16 +35,11 @@ export function groupOperationalSubscriptions(
   now = new Date(),
 ): OperationalSubscriptionGroups {
   const today = dateOnly(now);
-  const soonDate = new Date(now);
-  soonDate.setUTCDate(soonDate.getUTCDate() + 7);
-  const soon = dateOnly(soonDate);
+  const soon = shiftedDate(now, EXPIRING_WINDOW_DAYS);
+  const expirationFloor = shiftedDate(now, -EXPIRED_WINDOW_DAYS);
   const membersWithCurrentMembership = new Set(
     subscriptions
-      .filter(
-        (subscription) =>
-          subscription.status === "frozen" ||
-          (subscription.status === "active" && subscription.end_date >= today),
-      )
+      .filter((subscription) => holdsCurrentMembership(subscription, today))
       .map((subscription) => subscription.member_id),
   );
   const groups: OperationalSubscriptionGroups = {
@@ -35,24 +47,29 @@ export function groupOperationalSubscriptions(
     expiring: [],
     expired: [],
     frozen: [],
-    pending: [],
+    partial: [],
   };
 
   for (const subscription of subscriptions) {
-    if (subscription.status === "pending") {
-      groups.pending.push(subscription);
-    } else if (subscription.status === "frozen") {
+    const status =
+      subscription.status === "pending" ? "active" : subscription.status;
+
+    if (status === "frozen") {
       groups.frozen.push(subscription);
-    } else if (
-      subscription.status === "active" &&
-      subscription.end_date < today
-    ) {
-      if (!membersWithCurrentMembership.has(subscription.member_id)) {
+    } else if (status === "active" && subscription.end_date < today) {
+      if (
+        subscription.end_date >= expirationFloor &&
+        !membersWithCurrentMembership.has(subscription.member_id)
+      ) {
         groups.expired.push(subscription);
       }
-    } else if (subscription.status === "active") {
+    } else if (status === "active") {
       groups.active.push(subscription);
       if (subscription.end_date <= soon) groups.expiring.push(subscription);
+    }
+
+    if (subscription.paid_amount_cents > 0 && !subscription.is_paid) {
+      groups.partial.push(subscription);
     }
   }
 

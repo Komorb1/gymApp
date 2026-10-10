@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MemberReport, Plan, Subscription } from "./ipc";
 import {
+  EXPIRED_WINDOW_DAYS,
   canReviewDiscount,
   discountedPriceCents,
   filterMemberReports,
@@ -61,30 +62,65 @@ const subscription = (
 });
 
 describe("subscription operational views", () => {
+  const now = new Date("2026-09-13T12:00:00Z");
+
   it("excludes historical expiries when the member has a current membership", () => {
-    const old = subscription(1, 1, "active", "2026-01-01");
+    const old = subscription(1, 1, "active", "2026-09-01");
     const current = subscription(2, 1, "active", "2026-12-01");
-    const expiredOnly = subscription(3, 2, "active", "2026-01-01");
+    const expiredOnly = subscription(3, 2, "active", "2026-09-05");
 
     const groups = groupOperationalSubscriptions(
       [old, current, expiredOnly],
-      new Date("2026-09-13T12:00:00Z"),
+      now,
     );
 
     expect(groups.expired.map(({ id }) => id)).toEqual([3]);
   });
 
-  it("keeps pending requests separate and never treats rejected requests as expired", () => {
-    const pending = subscription(1, 1, "pending", "2026-01-01");
-    const rejected = subscription(2, 2, "rejected", "2026-01-01");
+  it("lists only memberships expired within the last thirty days", () => {
+    const recent = subscription(1, 1, "active", "2026-08-20");
+    const ancient = subscription(2, 2, "active", "2026-07-01");
+
+    const groups = groupOperationalSubscriptions([recent, ancient], now);
+
+    expect(EXPIRED_WINDOW_DAYS).toBe(30);
+    expect(groups.expired.map(({ id }) => id)).toEqual([1]);
+  });
+
+  it("keeps pending approvals visible in the active bucket", () => {
+    const pending = subscription(1, 1, "pending", "2026-12-01");
+    const rejected = subscription(2, 2, "rejected", "2026-09-01");
+
+    const groups = groupOperationalSubscriptions([pending, rejected], now);
+
+    expect(groups.active).toEqual([pending]);
+    expect(groups.expired).toEqual([]);
+  });
+
+  it("collects partially paid memberships across every status", () => {
+    const partialActive = {
+      ...subscription(1, 1, "active", "2026-12-01"),
+      paid_amount_cents: 2000,
+      is_paid: false,
+    };
+    const partialOld = {
+      ...subscription(2, 2, "active", "2026-07-01"),
+      paid_amount_cents: 1000,
+      is_paid: false,
+    };
+    const unpaid = {
+      ...subscription(3, 3, "active", "2026-12-01"),
+      paid_amount_cents: 0,
+      is_paid: false,
+    };
+    const paidInFull = subscription(4, 4, "active", "2026-12-01");
 
     const groups = groupOperationalSubscriptions(
-      [pending, rejected],
-      new Date("2026-09-13T12:00:00Z"),
+      [partialActive, partialOld, unpaid, paidInFull],
+      now,
     );
 
-    expect(groups.pending).toEqual([pending]);
-    expect(groups.expired).toEqual([]);
+    expect(groups.partial.map(({ id }) => id)).toEqual([1, 2]);
   });
 });
 

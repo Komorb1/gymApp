@@ -118,6 +118,8 @@
     "usernameRequired": "Username is required",
     "password": "Password",
     "confirmPassword": "Confirm password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "passwordRequired": "Password is required",
     "passwordMismatch": "Passwords do not match",
     "passwordHint": "Use at least {{count}} characters.",
@@ -127,7 +129,7 @@
     "lockedOut": "Too many attempts. Try again in {{seconds}}s."
   },
   "setup": {
-    "welcome": "Welcome to GymApp",
+    "welcomeTo": "Welcome to {{name}}",
     "setupGym": "Set up your gym",
     "gymName": "Gym Name",
     "createUser": "Create admin user",
@@ -193,7 +195,10 @@
     "payment": "Payment",
     "paidAmount": "Paid Amount",
     "planPrice": "Plan Price",
-    "balanceAmount": "Balance Amount",
+    "unpaidAmount": "Un-paid Amount",
+    "confirmEditTitle": "Confirm membership edit",
+    "confirmEditWarning": "This membership is expired or cancelled. Save these changes anyway?",
+    "expiredWindow": "Only memberships that expired within the last 30 days are listed.",
     "invalidPaidAmount": "Paid amount must be between zero and the final price",
     "alreadyActive": "This member already has an active membership",
     "discount": "Discount",
@@ -216,7 +221,7 @@
       "expiring": "Expiring (7d)",
       "expired": "Expired",
       "frozen": "Frozen",
-      "pending": "Pending approval"
+      "partial": "Partially Paid"
     }
   },
   "settings": {
@@ -269,6 +274,7 @@
     "activeMembers": "Active Members",
     "expiringThisWeek": "Expiring This Week",
     "expiredOverdue": "Expired / Overdue",
+    "expiredWindow": "Last 30 days",
     "totalMembers": "Total Members",
     "expiringSoon": "Expiring Soon",
     "recentMembers": "Recently Added"

@@ -118,6 +118,8 @@
     "usernameRequired": "اسم المستخدم مطلوب",
     "password": "كلمة المرور",
     "confirmPassword": "تأكيد كلمة المرور",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
     "passwordRequired": "كلمة المرور مطلوبة",
     "passwordMismatch": "كلمتا المرور غير متطابقتين",
     "passwordHint": "استخدم {{count}} أحرف على الأقل.",
@@ -127,7 +129,7 @@
     "lockedOut": "محاولات كثيرة. حاول مرة أخرى بعد {{seconds}} ثانية."
   },
   "setup": {
-    "welcome": "مرحبًا بك في جيم آبل",
+    "welcomeTo": "مرحبًا بك في {{name}}",
     "setupGym": "إعداد النادي",
     "gymName": "اسم النادي",
     "createUser": "إنشاء مستخدم مدير",
@@ -193,7 +195,10 @@
     "payment": "الدفع",
     "paidAmount": "المبلغ المدفوع",
     "planPrice": "سعر الباقة",
-    "balanceAmount": "المبلغ المتبقي",
+    "unpaidAmount": "المبلغ غير المدفوع",
+    "confirmEditTitle": "تأكيد تعديل الاشتراك",
+    "confirmEditWarning": "هذا الاشتراك منتهي أو ملغي. هل تريد حفظ هذه التغييرات على أي حال؟",
+    "expiredWindow": "يتم عرض الاشتراكات التي انتهت خلال آخر 30 يومًا فقط.",
     "invalidPaidAmount": "يجب أن يكون المبلغ المدفوع بين صفر والسعر النهائي",
     "alreadyActive": "لدى هذا العضو اشتراك نشط بالفعل",
     "discount": "الخصم",
@@ -216,7 +221,7 @@
       "expiring": "ينتهي خلال ٧ أيام",
       "expired": "منتهي",
       "frozen": "مجمّد",
-      "pending": "بانتظار الموافقة"
+      "partial": "مدفوع جزئيًا"
     }
   },
   "settings": {
@@ -269,6 +274,7 @@
     "activeMembers": "الأعضاء النشطون",
     "expiringThisWeek": "ينتهي هذا الأسبوع",
     "expiredOverdue": "منتهي / متأخر",
+    "expiredWindow": "آخر 30 يومًا",
     "totalMembers": "إجمالي الأعضاء",
     "expiringSoon": "ينتهي قريبًا",
     "recentMembers": "أُضيف مؤخرًا"

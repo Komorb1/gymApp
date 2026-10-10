@@ -276,8 +276,8 @@ export function MemberProfile() {
               </p>
             ) : (
               <>
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="rounded-lg border border-border overflow-x-auto">
+                  <table className="w-full min-w-[880px] text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -310,14 +310,14 @@ export function MemberProfile() {
                             <td className="p-3 font-cairo">
                               {s.plan_snapshot.name}
                             </td>
-                            <td className="p-3 font-cairo text-muted-foreground">
+                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               {formatDate(s.start_date)}
                             </td>
-                            <td className="p-3 font-cairo text-muted-foreground">
+                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               {formatDate(s.end_date)}
                             </td>
                             <td className="p-3">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 flex-wrap">
                                 <Badge
                                   variant={
                                     s.status === "active" &&
@@ -371,16 +371,14 @@ export function MemberProfile() {
                             </td>
                             <td className="p-3">
                               <div className="flex items-center justify-end gap-1 flex-wrap">
-                                {!isExpired(s.end_date) && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setEditSubscription(s)}
-                                    className="font-cairo"
-                                  >
-                                    {t("common.edit")}
-                                  </Button>
-                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditSubscription(s)}
+                                  className="font-cairo"
+                                >
+                                  {t("common.edit")}
+                                </Button>
                                 {s.status === "frozen" ? (
                                   isManagement ? (
                                     <Button

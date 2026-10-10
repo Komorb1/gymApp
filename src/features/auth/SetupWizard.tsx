@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
 import { GymLogo } from "@/components/brand/GymLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Card,
   CardContent,
@@ -24,6 +26,7 @@ interface SetupWizardProps {
 
 export function SetupWizard({ onComplete }: SetupWizardProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
 
   const [gymName, setGymName] = useState("");
@@ -69,6 +72,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         theme,
       );
       setSession(session);
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
       onComplete();
     } catch (err) {
       setError(String(err));
@@ -85,7 +89,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             <GymLogo className="w-20 h-20" />
           </div>
           <CardTitle className="text-2xl font-cairo">
-            {t("setup.welcome")}
+            {t("setup.welcomeTo", { name: gymName.trim() || t("app.name") })}
           </CardTitle>
           <CardDescription className="font-cairo">
             {t("setup.setupGym")}
@@ -125,9 +129,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 <Label htmlFor="password" className="font-cairo">
                   {t("auth.password")}
                 </Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={MIN_PASSWORD_LENGTH}
@@ -139,9 +142,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 <Label htmlFor="passwordConfirm" className="font-cairo">
                   {t("auth.confirmPassword")}
                 </Label>
-                <Input
+                <PasswordInput
                   id="passwordConfirm"
-                  type="password"
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   minLength={MIN_PASSWORD_LENGTH}

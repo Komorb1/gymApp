@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
-import { formatMoney, fullName } from "@/lib/format";
+import { formatMoney, fullName, isExpired } from "@/lib/format";
 import {
   discountedPriceCents,
   membershipPlanPriceCents,
@@ -47,6 +48,7 @@ export function EditMembershipDialog({
   );
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const planPriceCents = membershipPlanPriceCents(
     subscription,
     plans,
@@ -57,19 +59,11 @@ export function EditMembershipDialog({
     Number(discountPercent || 0),
   );
   const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
-  const balanceAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
+  const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
+  const needsConfirmation =
+    subscription.status === "cancelled" || isExpired(subscription.end_date);
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setError("");
-    if (
-      !Number.isFinite(paidAmountCents) ||
-      paidAmountCents < 0 ||
-      paidAmountCents > finalPriceCents
-    ) {
-      setError(t("subscriptions.invalidPaidAmount"));
-      return;
-    }
+  const saveMembership = () => {
     updateMembership.mutate(
       {
         subscription_id: subscription.id,
@@ -85,6 +79,24 @@ export function EditMembershipDialog({
         onError: (mutationError) => setError(String(mutationError)),
       },
     );
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    if (
+      !Number.isFinite(paidAmountCents) ||
+      paidAmountCents < 0 ||
+      paidAmountCents > finalPriceCents
+    ) {
+      setError(t("subscriptions.invalidPaidAmount"));
+      return;
+    }
+    if (needsConfirmation && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    saveMembership();
   };
 
   return (
@@ -188,8 +200,8 @@ export function EditMembershipDialog({
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.balanceAmount")}:{" "}
-              {formatMoney(balanceAmountCents)}
+              {t("subscriptions.unpaidAmount")}:{" "}
+              {formatMoney(unpaidAmountCents)}
             </p>
           </div>
           <div className="space-y-2">
@@ -226,6 +238,42 @@ export function EditMembershipDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {confirming && (
+        <Dialog open onOpenChange={() => setConfirming(false)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="font-cairo">
+                {t("subscriptions.confirmEditTitle")}
+              </DialogTitle>
+              <DialogDescription className="font-cairo">
+                {t("subscriptions.confirmEditWarning")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirming(false)}
+                className="font-cairo"
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={saveMembership}
+                disabled={updateMembership.isPending}
+                className="font-cairo"
+              >
+                {updateMembership.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {t("common.save")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

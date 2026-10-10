@@ -28,7 +28,7 @@ export function DashboardPage() {
     [subs],
   );
 
-  const tiles = [
+  const tiles: { label: string; value: number | string; hint?: string }[] = [
     {
       label: t("dashboard.activeMembers"),
       value: stats?.active_members ?? "—",
@@ -40,6 +40,7 @@ export function DashboardPage() {
     {
       label: t("dashboard.expiredOverdue"),
       value: stats?.expired_overdue ?? "—",
+      hint: t("dashboard.expiredWindow"),
     },
     { label: t("dashboard.totalMembers"), value: stats?.total_members ?? "—" },
   ];
@@ -58,6 +59,11 @@ export function DashboardPage() {
               <p className="text-4xl font-bold font-cairo">
                 {isLoading ? "…" : tile.value}
               </p>
+              {tile.hint && (
+                <p className="text-xs text-muted-foreground font-cairo">
+                  {tile.hint}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}

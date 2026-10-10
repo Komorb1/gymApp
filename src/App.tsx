@@ -5,6 +5,7 @@ import { GymLogo } from "@/components/brand/GymLogo";
 import { fetchSetupStatus } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 import { useSettings } from "@/hooks/useSettings";
+import { useGymName } from "@/hooks/useGymName";
 import { SetupWizard } from "@/features/auth/SetupWizard";
 import { Login } from "@/features/auth/Login";
 import { AppShell } from "@/components/layout/AppShell";
@@ -27,6 +28,7 @@ function App() {
   const [state, setState] = useState<AppState>("checking");
 
   useSettings();
+  useGymName();
 
   useEffect(() => {
     if (user) return;

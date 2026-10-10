@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -280,8 +281,7 @@ export function UsersManagement() {
             </div>
             <div className="space-y-2">
               <Label className="font-cairo">{t("auth.password")}</Label>
-              <Input
-                type="password"
+              <PasswordInput
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
                 minLength={MIN_PASSWORD_LENGTH}
@@ -350,8 +350,7 @@ export function UsersManagement() {
               <Label className="font-cairo">
                 {t("settings.changePassword")}
               </Label>
-              <Input
-                type="password"
+              <PasswordInput
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
                 placeholder={t("settings.keepPassword")}

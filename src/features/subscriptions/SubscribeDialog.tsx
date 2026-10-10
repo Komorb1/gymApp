@@ -182,7 +182,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.balanceAmount")}:{" "}
+              {t("subscriptions.unpaidAmount")}:{" "}
               {formatMoney(unpaidAmountCents)}
             </p>
           </div>

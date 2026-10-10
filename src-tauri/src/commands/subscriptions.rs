@@ -157,10 +157,10 @@ fn validate_paid_amount(final_price_cents: i64, paid_amount_cents: i64) -> AppRe
     Ok(())
 }
 
-fn ensure_membership_is_editable(end_date: &str, today: &str) -> AppResult<()> {
-    if end_date < today {
-        return Err(AppError::Conflict(
-            "Expired memberships cannot be edited".into(),
+fn ensure_membership_dates_are_valid(start_date: &str, end_date: &str) -> AppResult<()> {
+    if end_date < start_date {
+        return Err(AppError::Validation(
+            "End date must not be before start date".into(),
         ));
     }
     Ok(())
@@ -243,18 +243,24 @@ fn can_review_discount_request(status: &str, approval_status: Option<&str>) -> b
     status == "pending" && approval_status == Some("pending")
 }
 
-fn expired_overdue_count(conn: &rusqlite::Connection, today: &str) -> AppResult<i64> {
+const EXPIRED_WINDOW_DAYS: i64 = 30;
+
+fn expired_overdue_count(conn: &rusqlite::Connection, today: chrono::NaiveDate) -> AppResult<i64> {
+    let today_string = today.format("%Y-%m-%d").to_string();
+    let expiration_floor = (today - chrono::Duration::days(EXPIRED_WINDOW_DAYS))
+        .format("%Y-%m-%d")
+        .to_string();
     Ok(conn.query_row(
         "SELECT COUNT(DISTINCT s.member_id) FROM subscriptions s
          JOIN members m ON m.id = s.member_id
-         WHERE s.status = 'active' AND s.end_date < ?1 AND m.is_deleted = 0
+         WHERE s.status = 'active' AND s.end_date < ?1 AND s.end_date >= ?2 AND m.is_deleted = 0
          AND NOT EXISTS (
              SELECT 1 FROM subscriptions current
              WHERE current.member_id = s.member_id
                AND current.status IN ('active', 'frozen')
                AND current.end_date >= ?1
          )",
-        rusqlite::params![today],
+        rusqlite::params![today_string, expiration_floor],
         |row| row.get(0),
     )?)
 }
@@ -272,11 +278,16 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 mod tests {
     use super::{
         can_review_discount_request, discounted_price_cents, edited_membership_status,
-        ensure_membership_is_editable, ensure_no_current_membership, expired_overdue_count,
+        ensure_membership_dates_are_valid, ensure_no_current_membership, expired_overdue_count,
         membership_creation_status, reviewed_membership_status, validate_paid_amount,
     };
     use crate::db::migrations;
+    use chrono::NaiveDate;
     use rusqlite::Connection;
+
+    fn date(year: i32, month: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(year, month, day).unwrap()
+    }
 
     #[test]
     fn paid_amount_must_be_within_the_final_price() {
@@ -288,9 +299,10 @@ mod tests {
     }
 
     #[test]
-    fn expired_memberships_cannot_be_edited() {
-        assert!(ensure_membership_is_editable("2026-01-01", "2026-01-01").is_ok());
-        assert!(ensure_membership_is_editable("2025-12-31", "2026-01-01").is_err());
+    fn membership_dates_must_not_end_before_they_start() {
+        assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-02-01").is_ok());
+        assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-01-01").is_ok());
+        assert!(ensure_membership_dates_are_valid("2026-02-01", "2026-01-01").is_err());
     }
 
     #[test]
@@ -408,7 +420,39 @@ mod tests {
             .unwrap();
         }
 
-        assert_eq!(expired_overdue_count(&conn, "2026-02-15").unwrap(), 0);
+        assert_eq!(expired_overdue_count(&conn, date(2026, 2, 15)).unwrap(), 0);
+    }
+
+    #[test]
+    fn only_recent_expiries_are_counted_as_overdue() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        for (id, phone) in [(1, "971555000001"), (2, "971555000002")] {
+            conn.execute(
+                "INSERT INTO members (id, first_name, last_name, phone, whatsapp_no)
+                 VALUES (?1, 'Member', ?2, ?2, ?2)",
+                rusqlite::params![id, phone],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        for (member_id, end_date) in [(1, "2026-01-06"), (2, "2026-02-05")] {
+            conn.execute(
+                "INSERT INTO subscriptions (
+                    member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                    start_date, end_date, status
+                 ) VALUES (?1, 1, '{}', '{}', '2025-12-01', ?2, 'active')",
+                rusqlite::params![member_id, end_date],
+            )
+            .unwrap();
+        }
+
+        assert_eq!(expired_overdue_count(&conn, date(2026, 2, 15)).unwrap(), 1);
     }
 }
 
@@ -717,19 +761,14 @@ pub async fn update_subscription(
         let access_level = user_access_level(&transaction, actor_id)?;
         let before = subscription_by_id(&transaction, input.subscription_id)?;
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        ensure_membership_is_editable(&before.end_date, &today)?;
         let plan = if input.plan_id == before.plan_id {
             before.plan_snapshot.clone()
         } else {
             plan_snapshot(&transaction, input.plan_id, false)?
         };
-        let start_date = parse_date(&input.start_date, "start date")?;
-        let end_date = parse_date(&input.end_date, "end date")?;
-        if end_date < start_date {
-            return Err(AppError::Validation(
-                "End date must not be before start date".into(),
-            ));
-        }
+        parse_date(&input.start_date, "start date")?;
+        parse_date(&input.end_date, "end date")?;
+        ensure_membership_dates_are_valid(&input.start_date, &input.end_date)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let discount_changed = input.discount_percent != before.discount_percent;
@@ -974,7 +1013,7 @@ pub async fn get_dashboard_stats(
             rusqlite::params![today_string, week_later],
             |row| row.get(0),
         )?;
-        let expired_overdue = expired_overdue_count(conn, &today_string)?;
+        let expired_overdue = expired_overdue_count(conn, today)?;
         Ok(DashboardStats {
             active_members,
             expiring_this_week,
