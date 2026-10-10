@@ -1,6 +1,6 @@
 [package]
 name = "gym-desktop-app"
-version = "0.1.0"
+version = "0.1.1"
 description = "Gym Management System - Desktop"
 authors = ["GymApp"]
 edition = "2021"
