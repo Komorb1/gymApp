@@ -86,15 +86,10 @@ jobs:
             Unsigned ${{ github.ref_name }} test build for Windows reception desks. Windows SmartScreen may show an unknown publisher warning.
 
             ### Changes in ${{ github.ref_name }}
-            - Member details subscriptions table fits every column and scrolls instead of clipping
-            - Password fields have a show/hide button that stays put
-            - Editing an expired or cancelled membership asks for confirmation after saving
-            - Expired memberships appear only for the last 30 days on the dashboard and subscriptions page
-            - The subscriptions page has a Partially Paid tab in place of Pending approval; pending discounts stay in Active
-            - The unpaid column is now named Un-paid Amount
-            - The gym name entered during setup replaces "GymApp" in the sidebar and the window title
-            - The dashboard expiring list opens the member profile instead of offering a renew button
-            - Renewing a membership asks for confirmation before it is applied
+            - The application is now named SK GYM: installer, window title, in-app name and page title
+            - The word "Subscriptions" is now "Memberships" everywhere, in Arabic and English
+            - The installer now carries the gym logo instead of the default icon, and the app installs under a new folder and file name so Windows cannot show a cached old icon
+            Note: the repository name and the app identifier are unchanged, so your existing data keeps working.
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
