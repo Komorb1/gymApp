@@ -86,12 +86,15 @@ jobs:
             Unsigned ${{ github.ref_name }} test build for Windows reception desks. Windows SmartScreen may show an unknown publisher warning.
 
             ### Changes in ${{ github.ref_name }}
-            - Sign-in now uses a password instead of a 4-6 digit PIN; existing credentials keep working
-            - Staff can register their own account from the login screen
-            - Staff accounts can be deleted (history preserved; owner and management accounts are protected)
-            - Memberships track final price, paid amount and unpaid balance, so partial payments are supported
-            - A member can no longer hold two current memberships, and expired memberships are locked from edits
-            - Member form rejects national IDs that are not exactly 15 digits and future birth dates
+            - The sign-in screen, first-time setup, loading screen, and sidebar now use the gym logo
+            - Prices and payments show the dirham symbol in both Arabic and English
+            - The subscriptions list separates Paid Amount, Plan Price, and the new Balance Amount column
+            - Editing a membership keeps the plan price it was sold at, even after the plan's price changes
+            - Signing out after first-time setup returns to the sign-in screen instead of the setup form
+            - Passwords must be at least 6 characters for the first account and for new staff accounts
+            - Member WhatsApp numbers accept digits only and cannot be duplicated between members
+            - Date fields are readable in dark mode and open the picker from anywhere in the field
+            - Staff self-registration was removed from the sign-in screen; management adds staff in Settings
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
