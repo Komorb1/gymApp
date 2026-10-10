@@ -81,7 +81,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "GymApp ${{ github.ref_name }}"
+          releaseName: "SK GYM ${{ github.ref_name }}"
           releaseBody: |
             Unsigned ${{ github.ref_name }} test build for Windows reception desks. Windows SmartScreen may show an unknown publisher warning.
 

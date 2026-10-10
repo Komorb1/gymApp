@@ -1,11 +1,11 @@
 {
   "app": {
-    "name": "GymApp"
+    "name": "SK GYM"
   },
   "nav": {
     "dashboard": "Dashboard",
     "members": "Members",
-    "subscriptions": "Subscriptions",
+    "subscriptions": "Memberships",
     "plans": "Plans",
     "reports": "Reports",
     "settings": "Settings",
@@ -88,11 +88,11 @@
       "plan.create": "Plan Created",
       "plan.update": "Plan Updated",
       "plan.delete": "Plan Deleted",
-      "subscription.create": "Subscription Created",
-      "subscription.renew": "Subscription Renewed",
-      "subscription.freeze": "Subscription Frozen",
-      "subscription.unfreeze": "Subscription Unfrozen",
-      "subscription.cancel": "Subscription Cancelled",
+      "subscription.create": "Membership Created",
+      "subscription.renew": "Membership Renewed",
+      "subscription.freeze": "Membership Frozen",
+      "subscription.unfreeze": "Membership Unfrozen",
+      "subscription.cancel": "Membership Cancelled",
       "subscription.update": "Membership Updated",
       "subscription.approve_discount": "Discount Approved",
       "subscription.reject_discount": "Discount Rejected",
@@ -106,7 +106,7 @@
     "targets": {
       "member": "Member",
       "plan": "Plan",
-      "subscription": "Subscription",
+      "subscription": "Membership",
       "user": "User",
       "settings": "Settings"
     }
@@ -135,7 +135,7 @@
     "createUser": "Create admin user",
     "chooseLanguage": "Choose language",
     "chooseTheme": "Choose theme",
-    "finish": "Start using GymApp",
+    "finish": "Start using SK GYM",
     "pinConfirm": "Confirm PIN"
   },
   "members": {
@@ -159,7 +159,7 @@
     "inactive": "Inactive",
     "empty": "No members yet",
     "emptyCta": "Add your first member",
-    "cannotDeleteSubscribed": "A member with subscription history cannot be deleted. The member remains available in reports."
+    "cannotDeleteSubscribed": "A member with membership history cannot be deleted. The member remains available in reports."
   },
   "plans": {
     "title": "Plans",
@@ -172,12 +172,12 @@
     "empty": "No plans yet"
   },
   "subscriptions": {
-    "title": "Subscriptions",
-    "subscribe": "Subscribe",
+    "title": "Memberships",
+    "subscribe": "New Membership",
     "renew": "Renew",
     "freeze": "Freeze",
     "unfreeze": "Unfreeze",
-    "cancel": "Cancel Sub",
+    "cancel": "Cancel Membership",
     "extend": "Extend",
     "startDate": "Start Date",
     "endDate": "End Date",
@@ -210,9 +210,9 @@
     "plan": "Plan",
     "frozenUntil": "Frozen Until",
     "freezePrompt": "Freeze until (date)",
-    "subscribeMember": "Subscribe Member",
-    "noActiveSubs": "No active subscriptions",
-    "cancelConfirm": "Cancel this subscription?",
+    "subscribeMember": "New Membership",
+    "noActiveSubs": "No active memberships",
+    "cancelConfirm": "Cancel this membership?",
     "renewConfirm": "Renew this membership? A new membership will start when this one ends.",
     "approveDiscount": "Approve discount",
     "rejectDiscount": "Reject discount",
@@ -249,13 +249,13 @@
   },
   "reports": {
     "allMembers": "All registered members",
-    "allSubscriptions": "Total subscriptions",
+    "allSubscriptions": "Total memberships",
     "totalDiscounts": "Total discounts",
     "searchPlaceholder": "Search by name, WhatsApp, ID, or plan...",
     "empty": "No report data found",
     "deletedMember": "Deleted member",
-    "subscriptionsCount": "subscriptions",
-    "noSubscriptions": "This member has no subscriptions",
+    "subscriptionsCount": "memberships",
+    "noSubscriptions": "This member has no memberships",
     "noMatchingSubscriptions": "No memberships match these filters",
     "viewReport": "View Report",
     "memberFilter": "Filter members",
