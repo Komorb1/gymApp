@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, UserPlus, Pencil } from "lucide-react";
+import { Loader2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   listUsers,
   createUser,
   updateUser,
+  deleteUser,
   type AccessLevel,
   type User,
 } from "@/lib/ipc";
@@ -38,25 +39,25 @@ export function UsersManagement() {
   const [showAdd, setShowAdd] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [formUsername, setFormUsername] = useState("");
-  const [formPin, setFormPin] = useState("");
+  const [formPassword, setFormPassword] = useState("");
   const [formAccessLevel, setFormAccessLevel] = useState<AccessLevel>("staff");
   const [formError, setFormError] = useState("");
 
   const createMut = useMutation({
     mutationFn: ({
       username,
-      pin,
+      password,
       accessLevel,
     }: {
       username: string;
-      pin: string;
+      password: string;
       accessLevel: AccessLevel;
-    }) => createUser(sessionToken, username, pin, accessLevel),
+    }) => createUser(sessionToken, username, password, accessLevel),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setShowAdd(false);
       setFormUsername("");
-      setFormPin("");
+      setFormPassword("");
       setFormAccessLevel("staff");
       setFormError("");
     },
@@ -67,20 +68,20 @@ export function UsersManagement() {
     mutationFn: ({
       id,
       username,
-      pin,
+      password,
       is_active,
       access_level,
     }: {
       id: number;
       username?: string;
-      pin?: string;
+      password?: string;
       is_active?: boolean;
       access_level?: AccessLevel;
     }) =>
       updateUser(sessionToken, {
         id,
         username,
-        pin,
+        password,
         is_active,
         access_level,
       }),
@@ -88,7 +89,17 @@ export function UsersManagement() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditUser(null);
       setFormUsername("");
-      setFormPin("");
+      setFormPassword("");
+      setFormError("");
+    },
+    onError: (err) => setFormError(String(err)),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => deleteUser(sessionToken, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setEditUser(null);
       setFormError("");
     },
     onError: (err) => setFormError(String(err)),
@@ -101,13 +112,13 @@ export function UsersManagement() {
       setFormError(t("auth.username") + " — required");
       return;
     }
-    if (formPin.length < 4) {
-      setFormError("PIN — min 4 digits");
+    if (!formPassword) {
+      setFormError(t("auth.passwordRequired"));
       return;
     }
     createMut.mutate({
       username: formUsername.trim(),
-      pin: formPin,
+      password: formPassword,
       accessLevel: formAccessLevel,
     });
   };
@@ -123,7 +134,7 @@ export function UsersManagement() {
     updateMut.mutate({
       id: editUser.id,
       username: formUsername.trim(),
-      pin: formPin || undefined,
+      password: formPassword || undefined,
       access_level: formAccessLevel,
     });
   };
@@ -131,7 +142,7 @@ export function UsersManagement() {
   const openEdit = (u: User) => {
     setEditUser(u);
     setFormUsername(u.username);
-    setFormPin("");
+    setFormPassword("");
     setFormAccessLevel(u.access_level);
     setFormError("");
   };
@@ -139,7 +150,7 @@ export function UsersManagement() {
   useEffect(() => {
     if (showAdd) {
       setFormUsername("");
-      setFormPin("");
+      setFormPassword("");
       setFormAccessLevel("staff");
       setFormError("");
     }
@@ -256,16 +267,12 @@ export function UsersManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-cairo">{t("auth.pin")}</Label>
+              <Label className="font-cairo">{t("auth.password")}</Label>
               <Input
                 type="password"
-                inputMode="numeric"
-                value={formPin}
-                onChange={(e) =>
-                  setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                placeholder="••••"
-                className="font-cairo text-center tracking-widest"
+                value={formPassword}
+                onChange={(e) => setFormPassword(e.target.value)}
+                className="font-cairo"
               />
             </div>
             <div className="space-y-2">
@@ -324,16 +331,15 @@ export function UsersManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="font-cairo">{t("settings.changePin")}</Label>
+              <Label className="font-cairo">
+                {t("settings.changePassword")}
+              </Label>
               <Input
                 type="password"
-                inputMode="numeric"
-                value={formPin}
-                onChange={(e) =>
-                  setFormPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
-                placeholder="•••• (leave blank to keep)"
-                className="font-cairo text-center tracking-widest"
+                value={formPassword}
+                onChange={(e) => setFormPassword(e.target.value)}
+                placeholder={t("settings.keepPassword")}
+                className="font-cairo"
               />
             </div>
             <div className="space-y-2">
@@ -351,22 +357,41 @@ export function UsersManagement() {
               </select>
             </div>
             {editUser && !editUser.is_owner && (
-              <Button
-                type="button"
-                variant={editUser.is_active ? "destructive" : "default"}
-                size="sm"
-                className="font-cairo"
-                onClick={() =>
-                  updateMut.mutate({
-                    id: editUser.id,
-                    is_active: !editUser.is_active,
-                  })
-                }
-              >
-                {editUser.is_active
-                  ? t("members.inactive")
-                  : t("members.active")}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={editUser.is_active ? "destructive" : "default"}
+                  size="sm"
+                  className="font-cairo"
+                  onClick={() =>
+                    updateMut.mutate({
+                      id: editUser.id,
+                      is_active: !editUser.is_active,
+                    })
+                  }
+                >
+                  {editUser.is_active
+                    ? t("members.inactive")
+                    : t("members.active")}
+                </Button>
+                {editUser.access_level === "staff" && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="font-cairo"
+                    disabled={deleteMut.isPending}
+                    onClick={() => {
+                      if (window.confirm(t("settings.deleteUserConfirm"))) {
+                        deleteMut.mutate(editUser.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {t("common.delete")}
+                  </Button>
+                )}
+              </div>
             )}
             {formError && (
               <p className="text-sm text-destructive font-cairo">{formError}</p>

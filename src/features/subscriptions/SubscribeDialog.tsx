@@ -35,15 +35,24 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
     new Date().toISOString().slice(0, 10),
   );
   const [discountPercent, setDiscountPercent] = useState("0");
-  const [isPaid, setIsPaid] = useState(true);
+  const [paidAmount, setPaidAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (activePlans.length > 0 && planId === null) {
       setPlanId(activePlans[0].id);
+      setPaidAmount((activePlans[0].price_cents / 100).toFixed(2));
     }
   }, [activePlans, planId]);
+
+  const selectedPlan = activePlans.find((plan) => plan.id === planId);
+  const finalPriceCents = Math.round(
+    ((selectedPlan?.price_cents ?? 0) * (100 - Number(discountPercent || 0))) /
+      100,
+  );
+  const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
+  const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,13 +61,21 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
       setError(t("subscriptions.plan") + " — required");
       return;
     }
+    if (
+      !Number.isFinite(paidAmountCents) ||
+      paidAmountCents < 0 ||
+      paidAmountCents > finalPriceCents
+    ) {
+      setError(t("subscriptions.invalidPaidAmount"));
+      return;
+    }
     createMut.mutate(
       {
         member_id: member.id,
         plan_id: planId,
         start_date: startDate || null,
         discount_percent: Number(discountPercent),
-        is_paid: isPaid,
+        paid_amount_cents: paidAmountCents,
         notes: notes || null,
       },
       {
@@ -96,7 +113,10 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setPlanId(p.id)}
+                    onClick={() => {
+                      setPlanId(p.id);
+                      setPaidAmount((p.price_cents / 100).toFixed(2));
+                    }}
                     className={`w-full flex items-center justify-between p-2 rounded-md border transition-colors font-cairo ${
                       planId === p.id
                         ? "border-primary bg-primary/5"
@@ -138,15 +158,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
             />
             {planId && (
               <p className="text-sm text-muted-foreground font-cairo">
-                {t("subscriptions.finalPrice")}:{" "}
-                {formatPrice(
-                  Math.round(
-                    ((activePlans.find((plan) => plan.id === planId)
-                      ?.price_cents ?? 0) *
-                      (100 - Number(discountPercent || 0))) /
-                      100,
-                  ),
-                )}
+                {t("subscriptions.finalPrice")}: {formatPrice(finalPriceCents)}
               </p>
             )}
             {isStaff && Number(discountPercent) > 0 && (
@@ -157,25 +169,22 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="font-cairo">{t("subscriptions.payment")}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={isPaid ? "default" : "outline"}
-                onClick={() => setIsPaid(true)}
-                className="font-cairo"
-              >
-                {t("subscriptions.paid")}
-              </Button>
-              <Button
-                type="button"
-                variant={!isPaid ? "default" : "outline"}
-                onClick={() => setIsPaid(false)}
-                className="font-cairo"
-              >
-                {t("subscriptions.unpaid")}
-              </Button>
-            </div>
+            <Label className="font-cairo">
+              {t("subscriptions.paidAmount")}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={finalPriceCents / 100}
+              step="0.01"
+              value={paidAmount}
+              onChange={(event) => setPaidAmount(event.target.value)}
+              className="font-cairo"
+            />
+            <p className="text-sm text-muted-foreground font-cairo">
+              {t("subscriptions.unpaidAmount")}:{" "}
+              {formatPrice(unpaidAmountCents)}
+            </p>
           </div>
 
           <div className="space-y-2">

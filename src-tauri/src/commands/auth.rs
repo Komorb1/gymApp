@@ -9,33 +9,31 @@ use crate::error::{AppError, AppResult};
 use crate::models::{AuthSession, SetupStatus, User};
 use crate::session::{require_management, Sessions};
 
-fn hash_pin(pin: &str) -> AppResult<String> {
+fn hash_password(password: &str) -> AppResult<String> {
     let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default()
-        .hash_password(pin.as_bytes(), &salt)
+        .hash_password(password.as_bytes(), &salt)
         .map_err(|error| AppError::Auth(error.to_string()))?;
     Ok(hash.to_string())
 }
 
-fn verify_pin(pin: &str, encoded: &str) -> bool {
+fn verify_password(password: &str, encoded: &str) -> bool {
     PasswordHash::new(encoded)
         .ok()
         .and_then(|parsed| {
             Argon2::default()
-                .verify_password(pin.as_bytes(), &parsed)
+                .verify_password(password.as_bytes(), &parsed)
                 .ok()
         })
         .is_some()
 }
 
-fn validate_credentials(username: &str, pin: &str) -> AppResult<()> {
+fn validate_credentials(username: &str, password: &str) -> AppResult<()> {
     if username.trim().is_empty() {
         return Err(AppError::Validation("Username is required".into()));
     }
-    if !(4..=6).contains(&pin.len()) || !pin.chars().all(|character| character.is_ascii_digit()) {
-        return Err(AppError::Validation(
-            "PIN must contain 4 to 6 digits".into(),
-        ));
+    if password.is_empty() {
+        return Err(AppError::Validation("Password is required".into()));
     }
     Ok(())
 }
@@ -74,6 +72,25 @@ fn validate_owner_update(
     Ok(())
 }
 
+fn validate_user_deletion(
+    actor_id: i64,
+    target_id: i64,
+    is_owner: bool,
+    access_level: &str,
+) -> AppResult<()> {
+    if actor_id == target_id {
+        return Err(AppError::Conflict(
+            "You cannot delete your own account".into(),
+        ));
+    }
+    if is_owner || access_level != "staff" {
+        return Err(AppError::Conflict(
+            "Only staff accounts can be deleted".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn row_to_user(row: &rusqlite::Row) -> rusqlite::Result<User> {
     Ok(User {
         id: row.get("id")?,
@@ -81,6 +98,8 @@ fn row_to_user(row: &rusqlite::Row) -> rusqlite::Result<User> {
         access_level: row.get("access_level")?,
         is_owner: row.get::<_, i64>("is_owner")? != 0,
         is_active: row.get::<_, i64>("is_active")? != 0,
+        is_deleted: row.get::<_, i64>("is_deleted")? != 0,
+        deleted_at: row.get("deleted_at")?,
         last_login_at: row.get("last_login_at")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -114,12 +133,12 @@ pub async fn setup_first_user(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
     username: String,
-    pin: String,
+    password: String,
     gym_name: Option<String>,
     language: String,
     theme: String,
 ) -> AppResult<AuthSession> {
-    validate_credentials(&username, &pin)?;
+    validate_credentials(&username, &password)?;
     validate_preferences(&language, &theme)?;
     let user = db.with_conn(|conn| {
         let transaction = conn.transaction()?;
@@ -128,7 +147,7 @@ pub async fn setup_first_user(
         if count > 0 {
             return Err(AppError::Conflict("Setup already completed".into()));
         }
-        let pin_hash = hash_pin(&pin)?;
+        let pin_hash = hash_password(&password)?;
         transaction.execute(
             "INSERT INTO users (username, pin_hash, access_level, is_owner) VALUES (?1, ?2, 'management', 1)",
             rusqlite::params![username.trim(), pin_hash],
@@ -169,35 +188,92 @@ pub async fn login(
     db: State<'_, Db>,
     sessions: State<'_, Sessions>,
     username: String,
-    pin: String,
+    password: String,
 ) -> AppResult<AuthSession> {
     let user = db.with_conn(|conn| {
         let result = conn.query_row(
-            "SELECT id, pin_hash, is_active FROM users WHERE username = ?1 COLLATE NOCASE",
+            "SELECT id, pin_hash, is_active, is_deleted FROM users WHERE username = ?1 COLLATE NOCASE",
             rusqlite::params![username.trim()],
             |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
                 ))
             },
         );
-        let (id, pin_hash, is_active) = match result {
+        let (id, pin_hash, is_active, is_deleted) = match result {
             Ok(value) => value,
             Err(rusqlite::Error::QueryReturnedNoRows) => {
-                return Err(AppError::Auth("Invalid username or PIN".into()));
+                return Err(AppError::Auth("Invalid username or password".into()));
             }
             Err(error) => return Err(AppError::Sqlite(error)),
         };
-        if is_active == 0 || !verify_pin(&pin, &pin_hash) {
-            return Err(AppError::Auth("Invalid username or PIN".into()));
+        if is_active == 0 || is_deleted != 0 || !verify_password(&password, &pin_hash) {
+            return Err(AppError::Auth("Invalid username or password".into()));
         }
         conn.execute(
             "UPDATE users SET last_login_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1",
             rusqlite::params![id],
         )?;
         user_by_id(conn, id)
+    })?;
+    let session_token = sessions.issue(user.id)?;
+    Ok(AuthSession {
+        user,
+        session_token,
+    })
+}
+
+#[tauri::command]
+pub async fn register_staff(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    username: String,
+    password: String,
+) -> AppResult<AuthSession> {
+    validate_credentials(&username, &password)?;
+    let user = db.with_conn(|conn| {
+        let transaction = conn.transaction()?;
+        let owner_count: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM users WHERE is_owner = 1 AND is_deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        if owner_count == 0 {
+            return Err(AppError::Conflict(
+                "The gym owner must complete setup before staff can register".into(),
+            ));
+        }
+        let pin_hash = hash_password(&password)?;
+        transaction
+            .execute(
+                "INSERT INTO users (username, pin_hash, access_level) VALUES (?1, ?2, 'staff')",
+                rusqlite::params![username.trim(), pin_hash],
+            )
+            .map_err(|error| match error {
+                rusqlite::Error::SqliteFailure(sqlite_error, _)
+                    if sqlite_error.code == rusqlite::ErrorCode::ConstraintViolation =>
+                {
+                    AppError::Conflict("Username already exists".into())
+                }
+                other => AppError::Sqlite(other),
+            })?;
+        let user_id = transaction.last_insert_rowid();
+        let user = user_by_id(&transaction, user_id)?;
+        let after = serde_json::to_string(&user)?;
+        log_activity(
+            &transaction,
+            user_id,
+            "user.register",
+            Some("user"),
+            Some(user_id),
+            None,
+            Some(&after),
+        )?;
+        transaction.commit()?;
+        Ok(user)
     })?;
     let session_token = sessions.issue(user.id)?;
     Ok(AuthSession {
@@ -219,7 +295,8 @@ pub async fn list_users(
 ) -> AppResult<Vec<User>> {
     db.with_conn(|conn| {
         require_management(conn, &sessions, &session_token)?;
-        let mut statement = conn.prepare("SELECT * FROM users ORDER BY created_at")?;
+        let mut statement =
+            conn.prepare("SELECT * FROM users WHERE is_deleted = 0 ORDER BY created_at")?;
         let users = statement
             .query_map([], row_to_user)?
             .collect::<Result<Vec<_>, _>>()?;
@@ -233,15 +310,15 @@ pub async fn create_user(
     sessions: State<'_, Sessions>,
     session_token: String,
     username: String,
-    pin: String,
+    password: String,
     access_level: String,
 ) -> AppResult<User> {
-    validate_credentials(&username, &pin)?;
+    validate_credentials(&username, &password)?;
     validate_access_level(&access_level)?;
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_management(&transaction, &sessions, &session_token)?;
-        let pin_hash = hash_pin(&pin)?;
+        let pin_hash = hash_password(&password)?;
         transaction
             .execute(
                 "INSERT INTO users (username, pin_hash, access_level) VALUES (?1, ?2, ?3)",
@@ -276,7 +353,7 @@ pub async fn create_user(
 pub struct UpdateUserInput {
     pub id: i64,
     pub username: Option<String>,
-    pub pin: Option<String>,
+    pub password: Option<String>,
     pub access_level: Option<String>,
     pub is_active: Option<bool>,
 }
@@ -293,8 +370,8 @@ pub async fn update_user(
             return Err(AppError::Validation("Username is required".into()));
         }
     }
-    if let Some(ref pin) = input.pin {
-        validate_credentials("user", pin)?;
+    if let Some(ref password) = input.password {
+        validate_credentials("user", password)?;
     }
     if let Some(ref access_level) = input.access_level {
         validate_access_level(access_level)?;
@@ -303,6 +380,9 @@ pub async fn update_user(
         let transaction = conn.transaction()?;
         let actor_id = require_management(&transaction, &sessions, &session_token)?;
         let before = user_by_id(&transaction, input.id)?;
+        if before.is_deleted {
+            return Err(AppError::NotFound("User not found".into()));
+        }
         validate_owner_update(
             before.is_owner,
             input.access_level.as_deref(),
@@ -334,7 +414,11 @@ pub async fn update_user(
                 ));
             }
         }
-        let pin_hash = input.pin.as_ref().map(|pin| hash_pin(pin)).transpose()?;
+        let pin_hash = input
+            .password
+            .as_ref()
+            .map(|password| hash_password(password))
+            .transpose()?;
         transaction
             .execute(
                 "UPDATE users SET
@@ -363,9 +447,9 @@ pub async fn update_user(
         let user = user_by_id(&transaction, input.id)?;
         let mut before_details = serde_json::to_value(&before)?;
         let mut after_details = serde_json::to_value(&user)?;
-        if input.pin.is_some() {
-            before_details["pin_changed"] = serde_json::Value::Bool(false);
-            after_details["pin_changed"] = serde_json::Value::Bool(true);
+        if input.password.is_some() {
+            before_details["password_changed"] = serde_json::Value::Bool(false);
+            after_details["password_changed"] = serde_json::Value::Bool(true);
         }
         let before_json = serde_json::to_string(&before_details)?;
         let after_json = serde_json::to_string(&after_details)?;
@@ -383,23 +467,74 @@ pub async fn update_user(
     })
 }
 
+#[tauri::command]
+pub async fn delete_user(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+    id: i64,
+) -> AppResult<()> {
+    db.with_conn(|conn| {
+        let transaction = conn.transaction()?;
+        let actor_id = require_management(&transaction, &sessions, &session_token)?;
+        let before = user_by_id(&transaction, id)?;
+        if before.is_deleted {
+            return Err(AppError::NotFound("User not found".into()));
+        }
+        validate_user_deletion(actor_id, id, before.is_owner, &before.access_level)?;
+        transaction.execute(
+            "UPDATE users SET
+                is_active = 0,
+                is_deleted = 1,
+                deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE id = ?1 AND is_deleted = 0",
+            rusqlite::params![id],
+        )?;
+        let after = user_by_id(&transaction, id)?;
+        let before_json = serde_json::to_string(&before)?;
+        let after_json = serde_json::to_string(&after)?;
+        log_activity(
+            &transaction,
+            actor_id,
+            "user.delete",
+            Some("user"),
+            Some(id),
+            Some(&before_json),
+            Some(&after_json),
+        )?;
+        transaction.commit()?;
+        Ok(())
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{hash_pin, validate_owner_update, verify_pin};
+    use super::{
+        hash_password, validate_credentials, validate_owner_update, validate_user_deletion,
+        verify_password,
+    };
 
     #[test]
-    fn hash_and_verify_pin_roundtrip() {
-        let pin = "1234";
-        let hash = hash_pin(pin).unwrap();
+    fn password_accepts_any_non_empty_text() {
+        assert!(validate_credentials("user", "a").is_ok());
+        assert!(validate_credentials("user", "words and symbols !@#$").is_ok());
+        assert!(validate_credentials("user", "").is_err());
+    }
+
+    #[test]
+    fn hash_and_verify_password_roundtrip() {
+        let password = "arbitrary password !";
+        let hash = hash_password(password).unwrap();
         assert!(!hash.is_empty());
-        assert!(verify_pin(pin, &hash));
-        assert!(!verify_pin("wrong", &hash));
+        assert!(verify_password(password, &hash));
+        assert!(!verify_password("wrong", &hash));
     }
 
     #[test]
     fn hash_is_unique_per_call() {
-        let first = hash_pin("1234").unwrap();
-        let second = hash_pin("1234").unwrap();
+        let first = hash_password("password").unwrap();
+        let second = hash_password("password").unwrap();
         assert_ne!(first, second);
     }
 
@@ -409,5 +544,13 @@ mod tests {
         assert!(validate_owner_update(true, None, Some(false)).is_err());
         assert!(validate_owner_update(true, Some("management"), Some(true)).is_ok());
         assert!(validate_owner_update(false, Some("staff"), Some(false)).is_ok());
+    }
+
+    #[test]
+    fn only_other_non_owner_staff_users_can_be_deleted() {
+        assert!(validate_user_deletion(1, 2, false, "staff").is_ok());
+        assert!(validate_user_deletion(1, 1, false, "staff").is_err());
+        assert!(validate_user_deletion(1, 2, true, "management").is_err());
+        assert!(validate_user_deletion(1, 2, false, "management").is_err());
     }
 }

@@ -75,6 +75,8 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   }, [member, reset]);
 
   const photoPath = member?.photo_path ?? null;
+  const idNumberField = register("id_number");
+  const today = new Date().toISOString().slice(0, 10);
 
   const pickPhoto = async () => {
     try {
@@ -216,7 +218,23 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label className="font-cairo">{t("members.idNumber")}</Label>
-              <Input {...register("id_number")} className="font-cairo" />
+              <Input
+                {...idNumberField}
+                inputMode="numeric"
+                maxLength={15}
+                onChange={(event) => {
+                  event.target.value = event.target.value
+                    .replace(/\D/g, "")
+                    .slice(0, 15);
+                  idNumberField.onChange(event);
+                }}
+                className="font-cairo"
+              />
+              {errors.id_number && (
+                <p className="text-xs text-destructive font-cairo">
+                  {errors.id_number.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="font-cairo">{t("members.email")}</Label>
@@ -238,8 +256,14 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
             <Input
               {...register("birth_date")}
               type="date"
+              max={today}
               className="font-cairo"
             />
+            {errors.birth_date && (
+              <p className="text-xs text-destructive font-cairo">
+                {errors.birth_date.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

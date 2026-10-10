@@ -36,7 +36,9 @@ const actionColors: Record<
   "subscription.update": "default",
   "auth.login": "secondary",
   "user.create": "success",
+  "user.register": "success",
   "user.update": "default",
+  "user.delete": "destructive",
   "settings.update": "secondary",
 };
 
@@ -101,7 +103,10 @@ export function ActivityLogPage() {
     if (value === null || value === "") return "—";
     if (
       typeof value === "number" &&
-      (field === "price_cents" || field === "paid_amount_cents")
+      (field === "price_cents" ||
+        field === "final_price_cents" ||
+        field === "paid_amount_cents" ||
+        field === "unpaid_amount_cents")
     ) {
       return formatPrice(value);
     }

@@ -45,11 +45,11 @@ impl Sessions {
 
 pub fn require_user(conn: &Connection, sessions: &Sessions, token: &str) -> AppResult<i64> {
     let user_id = sessions.user_id(token)?;
-    let active: bool = conn
+    let (active, deleted): (bool, bool) = conn
         .query_row(
-            "SELECT is_active FROM users WHERE id = ?1",
+            "SELECT is_active, is_deleted FROM users WHERE id = ?1",
             rusqlite::params![user_id],
-            |row| Ok(row.get::<_, i64>(0)? != 0),
+            |row| Ok((row.get::<_, i64>(0)? != 0, row.get::<_, i64>(1)? != 0)),
         )
         .map_err(|error| match error {
             rusqlite::Error::QueryReturnedNoRows => {
@@ -57,7 +57,7 @@ pub fn require_user(conn: &Connection, sessions: &Sessions, token: &str) -> AppR
             }
             other => AppError::Sqlite(other),
         })?;
-    if !active {
+    if !active || deleted {
         return Err(AppError::Auth("User is deactivated".into()));
     }
     Ok(user_id)

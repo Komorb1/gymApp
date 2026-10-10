@@ -70,7 +70,7 @@ export function SubscriptionsPage() {
       subscription_id: s.id,
       plan_id: s.plan_id,
       discount_percent: s.discount_percent,
-      is_paid: s.is_paid,
+      paid_amount_cents: s.paid_amount_cents,
       notes: null,
     });
   };
@@ -143,7 +143,15 @@ export function SubscriptionsPage() {
               variant={s.is_paid ? "success" : "destructive"}
               className="font-cairo"
             >
-              {t(`subscriptions.${s.is_paid ? "paid" : "unpaid"}`)}
+              {t(
+                `subscriptions.${
+                  s.is_paid
+                    ? "paid"
+                    : s.paid_amount_cents > 0
+                      ? "partial"
+                      : "unpaid"
+                }`,
+              )}
             </Badge>
             {showDiscount(s.discount_percent) && (
               <Badge variant="default" className="font-cairo">
@@ -151,7 +159,8 @@ export function SubscriptionsPage() {
               </Badge>
             )}
             <span className="text-sm font-semibold font-cairo">
-              {formatPrice(s.paid_amount_cents)}
+              {formatPrice(s.paid_amount_cents)} /{" "}
+              {formatPrice(s.final_price_cents)}
             </span>
           </div>
         </td>
@@ -181,14 +190,16 @@ export function SubscriptionsPage() {
                 </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditTarget(s)}
-              className="font-cairo"
-            >
-              {t("common.edit")}
-            </Button>
+            {!isExpired(s.end_date) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditTarget(s)}
+                className="font-cairo"
+              >
+                {t("common.edit")}
+              </Button>
+            )}
             {s.status === "frozen" ? (
               isManagement ? (
                 <Button
@@ -428,29 +439,46 @@ export function SubscriptionsPage() {
                 {t("members.empty")}
               </p>
             ) : (
-              pickerMembers.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    setShowPicker(false);
-                    setSubscribeMember(m);
-                  }}
-                  className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors text-start"
-                >
-                  {memberPhotoUrl(m.photo_path) ? (
-                    <img
-                      src={memberPhotoUrl(m.photo_path)!}
-                      alt=""
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                      {m.first_name[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <span className="font-cairo font-medium">{fullName(m)}</span>
-                </button>
-              ))
+              pickerMembers.map((m) => {
+                const hasCurrentMembership = subs.some(
+                  (subscription) =>
+                    subscription.member_id === m.id &&
+                    (subscription.status === "active" ||
+                      subscription.status === "frozen") &&
+                    !isExpired(subscription.end_date),
+                );
+                return (
+                  <button
+                    key={m.id}
+                    disabled={hasCurrentMembership}
+                    onClick={() => {
+                      setShowPicker(false);
+                      setSubscribeMember(m);
+                    }}
+                    className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors text-start disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {memberPhotoUrl(m.photo_path) ? (
+                      <img
+                        src={memberPhotoUrl(m.photo_path)!}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                        {m.first_name[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className="font-cairo font-medium">
+                      {fullName(m)}
+                    </span>
+                    {hasCurrentMembership && (
+                      <span className="ms-auto text-xs text-muted-foreground font-cairo">
+                        {t("subscriptions.alreadyActive")}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
         </DialogContent>

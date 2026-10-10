@@ -22,8 +22,8 @@ export function SetupWizard() {
 
   const [gymName, setGymName] = useState("");
   const [username, setUsername] = useState("");
-  const [pin, setPin] = useState("");
-  const [pinConfirm, setPinConfirm] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [error, setError] = useState("");
@@ -37,12 +37,12 @@ export function SetupWizard() {
       setError(t("auth.username") + " — required");
       return;
     }
-    if (pin.length < 4) {
-      setError("PIN must be at least 4 digits");
+    if (!password) {
+      setError(t("auth.passwordRequired"));
       return;
     }
-    if (pin !== pinConfirm) {
-      setError(t("setup.pinConfirm") + " — mismatch");
+    if (password !== passwordConfirm) {
+      setError(t("auth.passwordMismatch"));
       return;
     }
 
@@ -53,7 +53,7 @@ export function SetupWizard() {
 
       const session = await setupFirstUser(
         username.trim(),
-        pin,
+        password,
         gymName.trim() || undefined,
         language,
         theme,
@@ -113,35 +113,29 @@ export function SetupWizard() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="pin" className="font-cairo">
-                  {t("auth.pin")}
+                <Label htmlFor="password" className="font-cairo">
+                  {t("auth.password")}
                 </Label>
                 <Input
-                  id="pin"
+                  id="password"
                   type="password"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="••••"
-                  className="font-cairo text-center tracking-widest"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="font-cairo"
+                  autoComplete="new-password"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pinConfirm" className="font-cairo">
-                  {t("setup.pinConfirm")}
+                <Label htmlFor="passwordConfirm" className="font-cairo">
+                  {t("auth.confirmPassword")}
                 </Label>
                 <Input
-                  id="pinConfirm"
+                  id="passwordConfirm"
                   type="password"
-                  inputMode="numeric"
-                  value={pinConfirm}
-                  onChange={(e) =>
-                    setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="••••"
-                  className="font-cairo text-center tracking-widest"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  className="font-cairo"
+                  autoComplete="new-password"
                 />
               </div>
             </div>

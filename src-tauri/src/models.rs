@@ -15,6 +15,8 @@ pub struct User {
     pub access_level: String,
     pub is_owner: bool,
     pub is_active: bool,
+    pub is_deleted: bool,
+    pub deleted_at: Option<String>,
     pub last_login_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -193,7 +195,9 @@ pub struct Subscription {
     pub status: String,
     pub frozen_at: Option<String>,
     pub frozen_until: Option<String>,
+    pub final_price_cents: i64,
     pub paid_amount_cents: i64,
+    pub unpaid_amount_cents: i64,
     pub discount_percent: i64,
     pub is_paid: bool,
     pub discount_requested_by_user_id: Option<i64>,
@@ -212,7 +216,7 @@ pub struct CreateSubscriptionInput {
     pub plan_id: i64,
     pub start_date: Option<String>,
     pub discount_percent: i64,
-    pub is_paid: bool,
+    pub paid_amount_cents: i64,
     pub notes: Option<String>,
 }
 
@@ -221,7 +225,7 @@ pub struct RenewSubscriptionInput {
     pub subscription_id: i64,
     pub plan_id: Option<i64>,
     pub discount_percent: i64,
-    pub is_paid: bool,
+    pub paid_amount_cents: i64,
     pub notes: Option<String>,
 }
 
@@ -232,7 +236,7 @@ pub struct UpdateSubscriptionInput {
     pub start_date: String,
     pub end_date: String,
     pub discount_percent: i64,
-    pub is_paid: bool,
+    pub paid_amount_cents: i64,
     pub notes: Option<String>,
 }
 

@@ -37,16 +37,31 @@ export function EditMembershipDialog({
   const [discountPercent, setDiscountPercent] = useState(
     String(subscription.discount_percent),
   );
-  const [isPaid, setIsPaid] = useState(subscription.is_paid);
+  const [paidAmount, setPaidAmount] = useState(
+    (subscription.paid_amount_cents / 100).toFixed(2),
+  );
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
   const selectedPlan =
     plans.find((plan) => plan.id === Number(planId)) ??
     subscription.plan_snapshot;
+  const finalPriceCents = Math.round(
+    (selectedPlan.price_cents * (100 - Number(discountPercent || 0))) / 100,
+  );
+  const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
+  const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    if (
+      !Number.isFinite(paidAmountCents) ||
+      paidAmountCents < 0 ||
+      paidAmountCents > finalPriceCents
+    ) {
+      setError(t("subscriptions.invalidPaidAmount"));
+      return;
+    }
     updateMembership.mutate(
       {
         subscription_id: subscription.id,
@@ -54,7 +69,7 @@ export function EditMembershipDialog({
         start_date: startDate,
         end_date: endDate,
         discount_percent: Number(discountPercent),
-        is_paid: isPaid,
+        paid_amount_cents: paidAmountCents,
         notes: notes || null,
       },
       {
@@ -139,14 +154,7 @@ export function EditMembershipDialog({
               className="font-cairo"
             />
             <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.finalPrice")}:{" "}
-              {formatPrice(
-                Math.round(
-                  (selectedPlan.price_cents *
-                    (100 - Number(discountPercent || 0))) /
-                    100,
-                ),
-              )}
+              {t("subscriptions.finalPrice")}: {formatPrice(finalPriceCents)}
             </p>
             {isStaff &&
               Number(discountPercent) > 0 &&
@@ -158,25 +166,22 @@ export function EditMembershipDialog({
               )}
           </div>
           <div className="space-y-2">
-            <Label className="font-cairo">{t("subscriptions.payment")}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={isPaid ? "default" : "outline"}
-                onClick={() => setIsPaid(true)}
-                className="font-cairo"
-              >
-                {t("subscriptions.paid")}
-              </Button>
-              <Button
-                type="button"
-                variant={!isPaid ? "default" : "outline"}
-                onClick={() => setIsPaid(false)}
-                className="font-cairo"
-              >
-                {t("subscriptions.unpaid")}
-              </Button>
-            </div>
+            <Label className="font-cairo">
+              {t("subscriptions.paidAmount")}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={finalPriceCents / 100}
+              step="0.01"
+              value={paidAmount}
+              onChange={(event) => setPaidAmount(event.target.value)}
+              className="font-cairo"
+            />
+            <p className="text-sm text-muted-foreground font-cairo">
+              {t("subscriptions.unpaidAmount")}:{" "}
+              {formatPrice(unpaidAmountCents)}
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.notes")}</Label>

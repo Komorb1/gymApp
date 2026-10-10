@@ -86,6 +86,11 @@ export function MemberProfile() {
     subPage * SUBS_PER_PAGE,
     (subPage + 1) * SUBS_PER_PAGE,
   );
+  const hasCurrentMembership = subs.some(
+    (subscription) =>
+      (subscription.status === "active" || subscription.status === "frozen") &&
+      !isExpired(subscription.end_date),
+  );
 
   const confirmCancel = () => {
     if (cancelTarget) {
@@ -253,11 +258,17 @@ export function MemberProfile() {
           <div className="space-y-3">
             <Button
               onClick={() => setShowSubscribe(true)}
+              disabled={hasCurrentMembership}
               className="font-cairo"
             >
               <Plus className="w-4 h-4" />
               {t("subscriptions.subscribe")}
             </Button>
+            {hasCurrentMembership && (
+              <p className="text-sm text-muted-foreground font-cairo">
+                {t("subscriptions.alreadyActive")}
+              </p>
+            )}
 
             {subs.length === 0 ? (
               <p className="text-sm text-muted-foreground font-cairo py-6 text-center">
@@ -331,7 +342,13 @@ export function MemberProfile() {
                                   className="font-cairo"
                                 >
                                   {t(
-                                    `subscriptions.${s.is_paid ? "paid" : "unpaid"}`,
+                                    `subscriptions.${
+                                      s.is_paid
+                                        ? "paid"
+                                        : s.paid_amount_cents > 0
+                                          ? "partial"
+                                          : "unpaid"
+                                    }`,
                                   )}
                                 </Badge>
                                 {showDiscount(s.discount_percent) && (
@@ -344,7 +361,8 @@ export function MemberProfile() {
                                   </Badge>
                                 )}
                                 <span className="font-semibold font-cairo">
-                                  {formatPrice(s.paid_amount_cents)}
+                                  {formatPrice(s.paid_amount_cents)} /{" "}
+                                  {formatPrice(s.final_price_cents)}
                                 </span>
                               </div>
                             </td>
@@ -353,14 +371,16 @@ export function MemberProfile() {
                             </td>
                             <td className="p-3">
                               <div className="flex items-center justify-end gap-1 flex-wrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setEditSubscription(s)}
-                                  className="font-cairo"
-                                >
-                                  {t("common.edit")}
-                                </Button>
+                                {!isExpired(s.end_date) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditSubscription(s)}
+                                    className="font-cairo"
+                                  >
+                                    {t("common.edit")}
+                                  </Button>
+                                )}
                                 {s.status === "frozen" ? (
                                   isManagement ? (
                                     <Button
@@ -382,7 +402,8 @@ export function MemberProfile() {
                                           subscription_id: s.id,
                                           plan_id: s.plan_id,
                                           discount_percent: s.discount_percent,
-                                          is_paid: s.is_paid,
+                                          paid_amount_cents:
+                                            s.paid_amount_cents,
                                           notes: null,
                                         })
                                       }

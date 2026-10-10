@@ -289,6 +289,29 @@ mod tests {
     }
 
     #[test]
+    fn schema_supports_partial_payments_and_deleted_users() {
+        let conn = test_db();
+        let subscription_columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(subscriptions)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let user_columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(users)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+
+        assert!(subscription_columns.contains(&"final_price_cents".to_string()));
+        assert!(user_columns.contains(&"is_deleted".to_string()));
+        assert!(user_columns.contains(&"deleted_at".to_string()));
+    }
+
+    #[test]
     fn discount_percentage_constraint_is_enforced() {
         let conn = test_db();
         conn.execute(

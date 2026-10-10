@@ -10,7 +10,7 @@ import {
   useSubscriptions,
   useRenewSubscription,
 } from "@/hooks/useSubscriptions";
-import { useNavStore } from "@/stores/nav";
+
 import { isExpiringSoon, memberPhotoUrl, formatDate } from "@/lib/format";
 
 export function DashboardPage() {
@@ -18,7 +18,6 @@ export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
   const { data: subs = [] } = useSubscriptions();
   const renewMut = useRenewSubscription();
-  const navigate = useNavStore((s) => s.navigate);
 
   const expiringSoon = useMemo(
     () =>
@@ -48,15 +47,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {tiles.map((tile, i) => (
-          <Card
-            key={i}
-            className="cursor-pointer hover:border-primary/40 transition-colors"
-            onClick={() => {
-              if (i === 0 || i === 3) navigate("members");
-              else navigate("subscriptions");
-            }}
-          >
+        {tiles.map((tile) => (
+          <Card key={tile.label}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground font-cairo">
                 {tile.label}
@@ -125,7 +117,7 @@ export function DashboardPage() {
                         subscription_id: s.id,
                         plan_id: s.plan_id,
                         discount_percent: s.discount_percent,
-                        is_paid: s.is_paid,
+                        paid_amount_cents: s.paid_amount_cents,
                         notes: null,
                       })
                     }

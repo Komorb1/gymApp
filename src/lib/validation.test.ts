@@ -29,4 +29,31 @@ describe("member validation", () => {
   it("accepts optional member details", () => {
     expect(memberSchema.safeParse(validMember).success).toBe(true);
   });
+
+  it("requires an entered ID number to contain exactly 15 digits", () => {
+    expect(
+      memberSchema.safeParse({ ...validMember, id_number: "123456789012345" })
+        .success,
+    ).toBe(true);
+    expect(
+      memberSchema.safeParse({ ...validMember, id_number: "12345678901234" })
+        .success,
+    ).toBe(false);
+    expect(
+      memberSchema.safeParse({ ...validMember, id_number: "12345678901234a" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects a birth date in the future", () => {
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    expect(
+      memberSchema.safeParse({
+        ...validMember,
+        birth_date: tomorrow.toISOString().slice(0, 10),
+      }).success,
+    ).toBe(false);
+  });
 });

@@ -4,7 +4,11 @@ export const memberSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
-  id_number: z.string().optional().nullable(),
+  id_number: z
+    .string()
+    .regex(/^(?:\d{15})?$/, "ID number must contain exactly 15 digits")
+    .optional()
+    .nullable(),
   phone: z.string().min(1, "Phone number is required"),
   email: z
     .string()
@@ -12,7 +16,14 @@ export const memberSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal("")),
-  birth_date: z.string().optional().nullable(),
+  birth_date: z
+    .string()
+    .refine(
+      (value) => !value || value <= new Date().toISOString().slice(0, 10),
+      "Birth date cannot be in the future",
+    )
+    .optional()
+    .nullable(),
   notes: z.string().optional().nullable(),
 });
 

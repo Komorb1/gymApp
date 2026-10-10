@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { loginUser } from "@/lib/ipc";
+import { loginUser, registerStaff } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
 export function Login() {
@@ -14,7 +14,9 @@ export function Login() {
   const setSession = useAuthStore((s) => s.setSession);
 
   const [username, setUsername] = useState("");
-  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -26,9 +28,19 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!username.trim() || !password) {
+      setError(t("auth.credentialsRequired"));
+      return;
+    }
+    if (isRegistering && password !== confirmPassword) {
+      setError(t("auth.passwordMismatch"));
+      return;
+    }
     setLoading(true);
     try {
-      const session = await loginUser(username.trim(), pin);
+      const session = isRegistering
+        ? await registerStaff(username.trim(), password)
+        : await loginUser(username.trim(), password);
       setSession(session);
     } catch (err) {
       setError(String(err));
@@ -47,7 +59,7 @@ export function Login() {
             </div>
           </div>
           <CardTitle className="text-2xl font-cairo">
-            {t("auth.login")}
+            {t(isRegistering ? "auth.register" : "auth.login")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -66,21 +78,35 @@ export function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pin" className="font-cairo">
-                {t("auth.pin")}
+              <Label htmlFor="password" className="font-cairo">
+                {t("auth.password")}
               </Label>
               <Input
-                id="pin"
+                id="password"
                 type="password"
-                inputMode="numeric"
-                value={pin}
-                onChange={(e) =>
-                  setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="font-cairo"
+                autoComplete={
+                  isRegistering ? "new-password" : "current-password"
                 }
-                placeholder="••••"
-                className="font-cairo text-center tracking-widest"
               />
             </div>
+            {isRegistering && (
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password" className="font-cairo">
+                  {t("auth.confirmPassword")}
+                </Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="font-cairo"
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
             {error && (
               <p className="text-sm text-destructive font-cairo">{error}</p>
             )}
@@ -90,7 +116,19 @@ export function Login() {
               disabled={loading}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("auth.login")}
+              {t(isRegistering ? "auth.register" : "auth.login")}
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="w-full font-cairo"
+              onClick={() => {
+                setIsRegistering((value) => !value);
+                setConfirmPassword("");
+                setError("");
+              }}
+            >
+              {t(isRegistering ? "auth.haveAccount" : "auth.createAccount")}
             </Button>
           </form>
         </CardContent>

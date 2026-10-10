@@ -8,6 +8,8 @@ export type User = {
   access_level: AccessLevel;
   is_owner: boolean;
   is_active: boolean;
+  is_deleted: boolean;
+  deleted_at: string | null;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -39,7 +41,7 @@ export type UpdateSettingsInput = {
 export type UpdateUserInput = {
   id: number;
   username?: string;
-  pin?: string;
+  password?: string;
   access_level?: AccessLevel;
   is_active?: boolean;
 };
@@ -143,7 +145,9 @@ export type Subscription = {
   status: "active" | "frozen" | "cancelled" | "pending" | "rejected";
   frozen_at: string | null;
   frozen_until: string | null;
+  final_price_cents: number;
   paid_amount_cents: number;
+  unpaid_amount_cents: number;
   discount_percent: number;
   is_paid: boolean;
   discount_requested_by_user_id: number | null;
@@ -161,7 +165,7 @@ export type CreateSubscriptionInput = {
   plan_id: number;
   start_date?: string | null;
   discount_percent: number;
-  is_paid: boolean;
+  paid_amount_cents: number;
   notes?: string | null;
 };
 
@@ -169,7 +173,7 @@ export type RenewSubscriptionInput = {
   subscription_id: number;
   plan_id?: number | null;
   discount_percent: number;
-  is_paid: boolean;
+  paid_amount_cents: number;
   notes?: string | null;
 };
 
@@ -179,7 +183,7 @@ export type UpdateSubscriptionInput = {
   start_date: string;
   end_date: string;
   discount_percent: number;
-  is_paid: boolean;
+  paid_amount_cents: number;
   notes?: string | null;
 };
 
@@ -213,22 +217,32 @@ export function fetchSetupStatus(): Promise<SetupStatus> {
 
 export function setupFirstUser(
   username: string,
-  pin: string,
+  password: string,
   gymName?: string,
   language: "ar" | "en" = "ar",
   theme: "dark" | "light" = "dark",
 ): Promise<AuthSession> {
   return invoke<AuthSession>("setup_first_user", {
     username,
-    pin,
+    password,
     gymName: gymName || null,
     language,
     theme,
   });
 }
 
-export function loginUser(username: string, pin: string): Promise<AuthSession> {
-  return invoke<AuthSession>("login", { username, pin });
+export function loginUser(
+  username: string,
+  password: string,
+): Promise<AuthSession> {
+  return invoke<AuthSession>("login", { username, password });
+}
+
+export function registerStaff(
+  username: string,
+  password: string,
+): Promise<AuthSession> {
+  return invoke<AuthSession>("register_staff", { username, password });
 }
 
 export function logoutUser(sessionToken: string): Promise<void> {
@@ -242,13 +256,13 @@ export function listUsers(sessionToken: string): Promise<User[]> {
 export function createUser(
   sessionToken: string,
   username: string,
-  pin: string,
+  password: string,
   accessLevel: AccessLevel,
 ): Promise<User> {
   return invoke<User>("create_user", {
     sessionToken,
     username,
-    pin,
+    password,
     accessLevel,
   });
 }
@@ -258,6 +272,10 @@ export function updateUser(
   input: UpdateUserInput,
 ): Promise<User> {
   return invoke<User>("update_user", { sessionToken, input });
+}
+
+export function deleteUser(sessionToken: string, id: number): Promise<void> {
+  return invoke<void>("delete_user", { sessionToken, id });
 }
 
 export function fetchSettings(): Promise<Settings> {

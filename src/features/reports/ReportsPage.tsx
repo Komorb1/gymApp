@@ -209,14 +209,21 @@ export function ReportsPage() {
                         className="font-cairo"
                       >
                         {t(
-                          `subscriptions.${subscription.is_paid ? "paid" : "unpaid"}`,
+                          `subscriptions.${
+                            subscription.is_paid
+                              ? "paid"
+                              : subscription.paid_amount_cents > 0
+                                ? "partial"
+                                : "unpaid"
+                          }`,
                         )}
                       </Badge>
                     </td>
                     <td className="p-3 font-cairo">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
-                          {formatPrice(subscription.paid_amount_cents)}
+                          {formatPrice(subscription.paid_amount_cents)} /{" "}
+                          {formatPrice(subscription.final_price_cents)}
                         </span>
                         {showDiscount(subscription.discount_percent) && (
                           <Badge variant="secondary" className="font-cairo">

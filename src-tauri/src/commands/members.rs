@@ -60,6 +60,30 @@ fn validate_member(first_name: &str, phone: &str) -> AppResult<()> {
     Ok(())
 }
 
+fn validate_member_details(id_number: Option<&str>, birth_date: Option<&str>) -> AppResult<()> {
+    if let Some(id_number) = id_number.filter(|value| !value.trim().is_empty()) {
+        if id_number.len() != 15
+            || !id_number
+                .chars()
+                .all(|character| character.is_ascii_digit())
+        {
+            return Err(AppError::Validation(
+                "ID number must contain exactly 15 digits".into(),
+            ));
+        }
+    }
+    if let Some(birth_date) = birth_date.filter(|value| !value.trim().is_empty()) {
+        let birth_date = chrono::NaiveDate::parse_from_str(birth_date, "%Y-%m-%d")
+            .map_err(|_| AppError::Validation("Invalid birth date".into()))?;
+        if birth_date > chrono::Utc::now().date_naive() {
+            return Err(AppError::Validation(
+                "Birth date cannot be in the future".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn clean_optional(value: Option<String>) -> Option<String> {
     value.and_then(|text| {
         let trimmed = text.trim();
@@ -169,6 +193,7 @@ pub async fn create_member(
     input: CreateMemberInput,
 ) -> AppResult<Member> {
     validate_member(&input.first_name, &input.phone)?;
+    validate_member_details(input.id_number.as_deref(), input.birth_date.as_deref())?;
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
@@ -230,6 +255,7 @@ pub async fn update_member(
         let id_number = input.id_number.unwrap_or(before.id_number.clone());
         let email = input.email.unwrap_or(before.email.clone());
         let birth_date = input.birth_date.unwrap_or(before.birth_date.clone());
+        validate_member_details(id_number.as_deref(), birth_date.as_deref())?;
         let notes = input.notes.unwrap_or(before.notes.clone());
         let photo_path = input.photo_path.unwrap_or(before.photo_path.clone());
         transaction.execute(
@@ -496,9 +522,17 @@ pub async fn list_member_reports(
 
 #[cfg(test)]
 mod tests {
-    use super::ensure_member_has_no_subscriptions;
+    use super::{ensure_member_has_no_subscriptions, validate_member_details};
     use crate::db::migrations;
     use rusqlite::Connection;
+
+    #[test]
+    fn member_details_reject_invalid_id_and_future_birth_date() {
+        assert!(validate_member_details(Some("123456789012345"), Some("2020-01-01")).is_ok());
+        assert!(validate_member_details(Some("123"), Some("2020-01-01")).is_err());
+        assert!(validate_member_details(Some("12345678901234x"), Some("2020-01-01")).is_err());
+        assert!(validate_member_details(None, Some("2999-01-01")).is_err());
+    }
 
     #[test]
     fn member_with_any_subscription_cannot_be_deleted() {

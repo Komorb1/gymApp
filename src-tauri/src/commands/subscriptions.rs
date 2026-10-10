@@ -26,7 +26,11 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
         status: row.get("status")?,
         frozen_at: row.get("frozen_at")?,
         frozen_until: row.get("frozen_until")?,
+        final_price_cents: row.get("final_price_cents")?,
         paid_amount_cents: row.get("paid_amount_cents")?,
+        unpaid_amount_cents: (row.get::<_, i64>("final_price_cents")?
+            - row.get::<_, i64>("paid_amount_cents")?)
+        .max(0),
         discount_percent: row.get("discount_percent")?,
         is_paid: row.get("is_paid")?,
         discount_requested_by_user_id: row.get("discount_requested_by_user_id")?,
@@ -144,6 +148,47 @@ fn discounted_price_cents(price_cents: i64, discount_percent: i64) -> AppResult<
     Ok((price_cents * (100 - discount_percent) + 50) / 100)
 }
 
+fn validate_paid_amount(final_price_cents: i64, paid_amount_cents: i64) -> AppResult<()> {
+    if paid_amount_cents < 0 || paid_amount_cents > final_price_cents {
+        return Err(AppError::Validation(
+            "Paid amount must be between zero and the final price".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_membership_is_editable(end_date: &str, today: &str) -> AppResult<()> {
+    if end_date < today {
+        return Err(AppError::Conflict(
+            "Expired memberships cannot be edited".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_no_current_membership(
+    conn: &rusqlite::Connection,
+    member_id: i64,
+    excluded_subscription_id: Option<i64>,
+    today: &str,
+) -> AppResult<()> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM subscriptions
+         WHERE member_id = ?1
+           AND status IN ('active', 'frozen')
+           AND end_date >= ?2
+           AND (?3 IS NULL OR id != ?3)",
+        rusqlite::params![member_id, today, excluded_subscription_id],
+        |row| row.get(0),
+    )?;
+    if count > 0 {
+        return Err(AppError::Conflict(
+            "Member already has an active membership".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn membership_creation_status(access_level: &str, discount_percent: i64) -> &'static str {
     if access_level == "staff" && discount_percent > 0 {
         "pending"
@@ -227,10 +272,55 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 mod tests {
     use super::{
         can_review_discount_request, discounted_price_cents, edited_membership_status,
-        expired_overdue_count, membership_creation_status, reviewed_membership_status,
+        ensure_membership_is_editable, ensure_no_current_membership, expired_overdue_count,
+        membership_creation_status, reviewed_membership_status, validate_paid_amount,
     };
     use crate::db::migrations;
     use rusqlite::Connection;
+
+    #[test]
+    fn paid_amount_must_be_within_the_final_price() {
+        assert!(validate_paid_amount(10_000, 0).is_ok());
+        assert!(validate_paid_amount(10_000, 5_000).is_ok());
+        assert!(validate_paid_amount(10_000, 10_000).is_ok());
+        assert!(validate_paid_amount(10_000, -1).is_err());
+        assert!(validate_paid_amount(10_000, 10_001).is_err());
+    }
+
+    #[test]
+    fn expired_memberships_cannot_be_edited() {
+        assert!(ensure_membership_is_editable("2026-01-01", "2026-01-01").is_ok());
+        assert!(ensure_membership_is_editable("2025-12-31", "2026-01-01").is_err());
+    }
+
+    #[test]
+    fn member_cannot_have_two_current_memberships() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone, whatsapp_no) VALUES ('Test', '', '123', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 'active')",
+            [],
+        )
+        .unwrap();
+
+        assert!(ensure_no_current_membership(&conn, 1, None, "2026-01-15").is_err());
+        assert!(ensure_no_current_membership(&conn, 1, Some(1), "2026-01-15").is_ok());
+        assert!(ensure_no_current_membership(&conn, 1, None, "2026-02-02").is_ok());
+    }
 
     #[test]
     fn discount_percentage_calculates_rounded_final_price() {
@@ -370,6 +460,9 @@ pub async fn create_subscription(
         let member = member_snapshot(&transaction, input.member_id)?;
         let plan = plan_snapshot(&transaction, input.plan_id, true)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        ensure_no_current_membership(&transaction, input.member_id, None, &today)?;
         let status = membership_creation_status(&access_level, input.discount_percent);
         let discount_requester = (status == "pending").then_some(actor_id);
         let start_date = match input.start_date {
@@ -382,9 +475,10 @@ pub async fn create_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, status, paid_amount_cents, discount_percent, is_paid,
+                start_date, end_date, status, final_price_cents, paid_amount_cents,
+                discount_percent, is_paid,
                 discount_requested_by_user_id, discount_approval_status, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -394,8 +488,9 @@ pub async fn create_subscription(
                 end_date,
                 status,
                 final_price_cents,
+                input.paid_amount_cents,
                 input.discount_percent,
-                input.is_paid,
+                input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_requester.map(|_| "pending"),
                 clean_notes(input.notes),
@@ -434,9 +529,16 @@ pub async fn renew_subscription(
         let plan_id = input.plan_id.unwrap_or(before.plan_id);
         let plan = plan_snapshot(&transaction, plan_id, true)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let status = membership_creation_status(&access_level, input.discount_percent);
         let discount_requester = (status == "pending").then_some(actor_id);
         let today = chrono::Utc::now().date_naive();
+        ensure_no_current_membership(
+            &transaction,
+            before.member_id,
+            Some(input.subscription_id),
+            &today.format("%Y-%m-%d").to_string(),
+        )?;
         let previous_end = parse_date(&before.end_date, "membership end date")?;
         let start_date = previous_end.max(today);
         let end_date = compute_end_date(start_date, plan.duration_days);
@@ -445,9 +547,10 @@ pub async fn renew_subscription(
         transaction.execute(
             "INSERT INTO subscriptions (
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
-                start_date, end_date, status, paid_amount_cents, discount_percent, is_paid,
+                start_date, end_date, status, final_price_cents, paid_amount_cents,
+                discount_percent, is_paid,
                 discount_requested_by_user_id, discount_approval_status, renews_subscription_id, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             rusqlite::params![
                 before.member_id,
                 plan_id,
@@ -457,8 +560,9 @@ pub async fn renew_subscription(
                 end_date,
                 status,
                 final_price_cents,
+                input.paid_amount_cents,
                 input.discount_percent,
-                input.is_paid,
+                input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_requester.map(|_| "pending"),
                 input.subscription_id,
@@ -612,7 +716,13 @@ pub async fn update_subscription(
         let actor_id = require_user(&transaction, &sessions, &session_token)?;
         let access_level = user_access_level(&transaction, actor_id)?;
         let before = subscription_by_id(&transaction, input.subscription_id)?;
-        let plan = plan_snapshot(&transaction, input.plan_id, false)?;
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        ensure_membership_is_editable(&before.end_date, &today)?;
+        let plan = if input.plan_id == before.plan_id {
+            before.plan_snapshot.clone()
+        } else {
+            plan_snapshot(&transaction, input.plan_id, false)?
+        };
         let start_date = parse_date(&input.start_date, "start date")?;
         let end_date = parse_date(&input.end_date, "end date")?;
         if end_date < start_date {
@@ -621,6 +731,7 @@ pub async fn update_subscription(
             ));
         }
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let discount_changed = input.discount_percent != before.discount_percent;
         let status = edited_membership_status(
             &before.status,
@@ -635,6 +746,14 @@ pub async fn update_subscription(
             && input.discount_percent > 0
             && discount_changed
             && status != "pending";
+        if matches!(status, "active" | "frozen") {
+            ensure_no_current_membership(
+                &transaction,
+                before.member_id,
+                Some(input.subscription_id),
+                &today,
+            )?;
+        }
         let discount_requester = if creates_staff_request {
             Some(actor_id)
         } else if input.discount_percent == 0 {
@@ -666,20 +785,21 @@ pub async fn update_subscription(
                 start_date = ?3,
                 end_date = ?4,
                 status = ?5,
-                paid_amount_cents = ?6,
-                discount_percent = ?7,
-                is_paid = ?8,
-                discount_requested_by_user_id = ?9,
-                discount_approval_status = ?10,
-                discount_reviewed_by_user_id = ?11,
+                final_price_cents = ?6,
+                paid_amount_cents = ?7,
+                discount_percent = ?8,
+                is_paid = ?9,
+                discount_requested_by_user_id = ?10,
+                discount_approval_status = ?11,
+                discount_reviewed_by_user_id = ?12,
                 discount_reviewed_at = CASE
-                    WHEN ?12 = 1 THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                    WHEN ?11 IS NULL THEN NULL
+                    WHEN ?13 = 1 THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                    WHEN ?12 IS NULL THEN NULL
                     ELSE discount_reviewed_at
                 END,
-                notes = ?13,
+                notes = ?14,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?14",
+             WHERE id = ?15",
             rusqlite::params![
                 input.plan_id,
                 plan_json,
@@ -687,8 +807,9 @@ pub async fn update_subscription(
                 input.end_date,
                 status,
                 final_price_cents,
+                input.paid_amount_cents,
                 input.discount_percent,
-                input.is_paid,
+                input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_approval_status,
                 discount_reviewer,
@@ -744,6 +865,15 @@ fn review_discount_request(
         }
         let reviewed_status = reviewed_membership_status(approve);
         let status = reviewed_status;
+        if approve && status == "active" {
+            let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+            ensure_no_current_membership(
+                &transaction,
+                before.member_id,
+                before.renews_subscription_id,
+                &today,
+            )?;
+        }
         transaction.execute(
             "UPDATE subscriptions SET
                 status = ?1,
