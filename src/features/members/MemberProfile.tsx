@@ -66,6 +66,7 @@ export function MemberProfile() {
   const [showPhoto, setShowPhoto] = useState(false);
   const [subPage, setSubPage] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
   const [editSubscription, setEditSubscription] = useState<Subscription | null>(
     null,
   );
@@ -99,8 +100,21 @@ export function MemberProfile() {
     }
   };
 
+  const confirmRenew = () => {
+    if (renewTarget) {
+      renewMut.mutate({
+        subscription_id: renewTarget.id,
+        plan_id: renewTarget.plan_id,
+        discount_percent: renewTarget.discount_percent,
+        paid_amount_cents: renewTarget.paid_amount_cents,
+        notes: null,
+      });
+      setRenewTarget(null);
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl">
       <Button
         variant="ghost"
         size="sm"
@@ -277,7 +291,7 @@ export function MemberProfile() {
             ) : (
               <>
                 <div className="rounded-lg border border-border overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-sm">
+                  <table className="w-full min-w-[820px] text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -395,17 +409,7 @@ export function MemberProfile() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        renewMut.mutate({
-                                          subscription_id: s.id,
-                                          plan_id: s.plan_id,
-                                          discount_percent: s.discount_percent,
-                                          paid_amount_cents:
-                                            s.paid_amount_cents,
-                                          notes: null,
-                                        })
-                                      }
-                                      disabled={renewMut.isPending}
+                                      onClick={() => setRenewTarget(s)}
                                       className="font-cairo"
                                     >
                                       {t("subscriptions.renew")}
@@ -515,6 +519,44 @@ export function MemberProfile() {
               className="font-cairo"
             >
               {t("subscriptions.cancel")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!renewTarget}
+        onOpenChange={(v) => !v && setRenewTarget(null)}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-cairo">
+              {t("subscriptions.renew")}
+            </DialogTitle>
+            <DialogDescription className="font-cairo">
+              {t("subscriptions.renewConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          {renewTarget && (
+            <p className="text-sm font-cairo p-2 rounded-md bg-muted">
+              {renewTarget.plan_snapshot.name} —{" "}
+              {formatMoney(renewTarget.final_price_cents)}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenewTarget(null)}
+              className="font-cairo"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={confirmRenew}
+              disabled={renewMut.isPending}
+              className="font-cairo"
+            >
+              {t("subscriptions.renew")}
             </Button>
           </DialogFooter>
         </DialogContent>

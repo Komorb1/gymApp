@@ -1,15 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
-import { RotateCw } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  useDashboardStats,
-  useSubscriptions,
-  useRenewSubscription,
-} from "@/hooks/useSubscriptions";
+import { useDashboardStats, useSubscriptions } from "@/hooks/useSubscriptions";
+import { useNavStore } from "@/stores/nav";
 
 import { isExpiringSoon, memberPhotoUrl, formatDate } from "@/lib/format";
 
@@ -17,7 +12,7 @@ export function DashboardPage() {
   const { t } = useTranslation();
   const { data: stats, isLoading } = useDashboardStats();
   const { data: subs = [] } = useSubscriptions();
-  const renewMut = useRenewSubscription();
+  const navigate = useNavStore((state) => state.navigate);
 
   const expiringSoon = useMemo(
     () =>
@@ -83,9 +78,12 @@ export function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {expiringSoon.map((s) => (
-                <div
+                <button
                   key={s.id}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/30 transition-colors"
+                  type="button"
+                  onClick={() => navigate("member-profile", s.member_id)}
+                  aria-label={s.member_snapshot.first_name}
+                  className="w-full flex items-center gap-3 p-2 rounded-md text-start hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {memberPhotoUrl(s.member_snapshot.photo_path) ? (
                     <img
@@ -115,24 +113,7 @@ export function DashboardPage() {
                   <Badge variant="warning" className="font-cairo">
                     {t("subscriptions.expiring")}
                   </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      renewMut.mutate({
-                        subscription_id: s.id,
-                        plan_id: s.plan_id,
-                        discount_percent: s.discount_percent,
-                        paid_amount_cents: s.paid_amount_cents,
-                        notes: null,
-                      })
-                    }
-                    disabled={renewMut.isPending}
-                    aria-label={t("subscriptions.renew")}
-                  >
-                    <RotateCw className="w-4 h-4" />
-                  </Button>
-                </div>
+                </button>
               ))}
             </div>
           )}

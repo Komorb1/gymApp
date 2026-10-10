@@ -93,6 +93,8 @@ jobs:
             - The subscriptions page has a Partially Paid tab in place of Pending approval; pending discounts stay in Active
             - The unpaid column is now named Un-paid Amount
             - The gym name entered during setup replaces "GymApp" in the sidebar and the window title
+            - The dashboard expiring list opens the member profile instead of offering a renew button
+            - Renewing a membership asks for confirmation before it is applied
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc

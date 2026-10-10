@@ -57,6 +57,7 @@ export function SubscriptionsPage() {
   const [subscribeMember, setSubscribeMember] = useState<Member | null>(null);
   const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
   const [editTarget, setEditTarget] = useState<Subscription | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -79,6 +80,13 @@ export function SubscriptionsPage() {
     if (cancelTarget) {
       cancelMut.mutate(cancelTarget.id);
       setCancelTarget(null);
+    }
+  };
+
+  const confirmRenew = () => {
+    if (renewTarget) {
+      handleRenew(renewTarget);
+      setRenewTarget(null);
     }
   };
 
@@ -235,8 +243,7 @@ export function SubscriptionsPage() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => handleRenew(s)}
-                  disabled={renewMut.isPending}
+                  onClick={() => setRenewTarget(s)}
                   className="font-cairo"
                 >
                   {t("subscriptions.renew")}
@@ -434,6 +441,44 @@ export function SubscriptionsPage() {
               className="font-cairo"
             >
               {t("subscriptions.cancel")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!renewTarget}
+        onOpenChange={(v) => !v && setRenewTarget(null)}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-cairo">
+              {t("subscriptions.renew")}
+            </DialogTitle>
+            <DialogDescription className="font-cairo">
+              {t("subscriptions.renewConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          {renewTarget && (
+            <p className="text-sm font-cairo p-2 rounded-md bg-muted">
+              {fullName(renewTarget.member_snapshot)} —{" "}
+              {renewTarget.plan_snapshot.name}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenewTarget(null)}
+              className="font-cairo"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={confirmRenew}
+              disabled={renewMut.isPending}
+              className="font-cairo"
+            >
+              {t("subscriptions.renew")}
             </Button>
           </DialogFooter>
         </DialogContent>

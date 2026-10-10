@@ -213,6 +213,7 @@
     "subscribeMember": "اشتراك عضو",
     "noActiveSubs": "لا توجد اشتراكات نشطة",
     "cancelConfirm": "إلغاء هذا الاشتراك؟",
+    "renewConfirm": "تجديد هذا الاشتراك؟ سيبدأ اشتراك جديد عند انتهاء الاشتراك الحالي.",
     "approveDiscount": "اعتماد الخصم",
     "rejectDiscount": "رفض الخصم",
     "discountPendingNotice": "سيبقى هذا الاشتراك غير نشط حتى توافق الإدارة على الخصم.",

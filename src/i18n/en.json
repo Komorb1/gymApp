@@ -213,6 +213,7 @@
     "subscribeMember": "Subscribe Member",
     "noActiveSubs": "No active subscriptions",
     "cancelConfirm": "Cancel this subscription?",
+    "renewConfirm": "Renew this membership? A new membership will start when this one ends.",
     "approveDiscount": "Approve discount",
     "rejectDiscount": "Reject discount",
     "discountPendingNotice": "This membership will remain inactive until management approves the discount.",
