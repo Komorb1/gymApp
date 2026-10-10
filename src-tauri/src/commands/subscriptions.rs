@@ -299,6 +299,55 @@ mod tests {
     }
 
     #[test]
+    fn editing_a_plan_does_not_repriced_existing_memberships() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('Amina', 'Saleh', '971555000000')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, final_price_cents, paid_amount_cents
+             ) VALUES (1, 1, '{}',
+                '{\"id\":1,\"name\":\"Monthly\",\"duration_days\":30,\"price_cents\":5000}',
+                '2026-01-01', '2026-12-01', 5000, 2500)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute("UPDATE plans SET price_cents = 9000 WHERE id = 1", [])
+            .unwrap();
+
+        let (plan_price, snapshot_price, final_price, paid_amount): (i64, i64, i64, i64) = conn
+            .query_row(
+                "SELECT p.price_cents,
+                        json_extract(s.plan_snapshot_json, '$.price_cents'),
+                        s.final_price_cents,
+                        s.paid_amount_cents
+                 FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+                 WHERE s.id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+
+        assert_eq!(plan_price, 9000);
+        assert_eq!(snapshot_price, 5000);
+        assert_eq!(final_price, 5000);
+        assert_eq!(paid_amount, 2500);
+        assert_eq!(discounted_price_cents(snapshot_price, 10).unwrap(), 4500);
+    }
+
+    #[test]
     fn membership_dates_must_not_end_before_they_start() {
         assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-02-01").is_ok());
         assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-01-01").is_ok());

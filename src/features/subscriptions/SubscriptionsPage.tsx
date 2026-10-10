@@ -172,7 +172,7 @@ export function SubscriptionsPage() {
           {formatMoney(s.paid_amount_cents)}
         </td>
         <td className="p-3 font-cairo text-muted-foreground">
-          {formatMoney(s.final_price_cents)}
+          {formatMoney(s.plan_snapshot.price_cents)}
         </td>
         <td
           className={`p-3 font-cairo ${

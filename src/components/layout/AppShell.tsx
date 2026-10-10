@@ -1,6 +1,8 @@
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useNavStore } from "@/stores/nav";
+import { IS_LITE } from "@/lib/edition";
+import { isPageAvailable } from "@/lib/navigation";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { MembersPage } from "@/features/members/MembersPage";
 import { MemberProfile } from "@/features/members/MemberProfile";
@@ -28,9 +30,15 @@ export function AppShell() {
           {page === "member-profile" && <MemberProfile />}
           {page === "subscriptions" && <SubscriptionsPage />}
           {page === "plans" && isManagement && <PlansPage />}
-          {page === "activity" && <ActivityLogPage />}
-          {page === "reports" && <ReportsPage />}
-          {page === "settings" && <SettingsPage />}
+          {page === "activity" && isPageAvailable("activity", IS_LITE) && (
+            <ActivityLogPage />
+          )}
+          {page === "reports" && isPageAvailable("reports", IS_LITE) && (
+            <ReportsPage />
+          )}
+          {page === "settings" && isPageAvailable("settings", IS_LITE) && (
+            <SettingsPage />
+          )}
         </main>
       </div>
     </div>

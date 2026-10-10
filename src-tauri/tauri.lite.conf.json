@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SK GYM Lite",
+  "identifier": "com.gymapp.lite.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev:lite",
+    "beforeBuildCommand": "pnpm build:lite"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SK GYM Lite",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ]
+  }
+}

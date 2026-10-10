@@ -12,6 +12,8 @@ import {
 
 import { cn } from "@/lib/utils";
 import { GymLogo } from "@/components/brand/GymLogo";
+import { IS_LITE } from "@/lib/edition";
+import { isPageAvailable } from "@/lib/navigation";
 import { useGymName } from "@/hooks/useGymName";
 import { useNavStore, type Page } from "@/stores/nav";
 import { useAuthStore } from "@/stores/auth";
@@ -53,6 +55,7 @@ export function Sidebar() {
 
       <nav className="flex-1 p-2 space-y-1">
         {navItems
+          .filter(({ page: itemPage }) => isPageAvailable(itemPage, IS_LITE))
           .filter(({ page: itemPage }) => isManagement || itemPage !== "plans")
           .map(({ page: p, icon: Icon, key }) => {
             const isActive =
@@ -73,23 +76,25 @@ export function Sidebar() {
           })}
       </nav>
 
-      <div className="p-2 border-t border-border">
-        <div className="flex items-center gap-2 px-3 py-2 text-sm">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs">
-            {user?.username?.[0]?.toUpperCase() ?? "?"}
+      {!IS_LITE && (
+        <div className="p-2 border-t border-border">
+          <div className="flex items-center gap-2 px-3 py-2 text-sm">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs">
+              {user?.username?.[0]?.toUpperCase() ?? "?"}
+            </div>
+            <span className="font-cairo text-muted-foreground flex-1 truncate">
+              {user?.username ?? ""}
+            </span>
+            <button
+              onClick={logout}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={t("auth.logout")}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
-          <span className="font-cairo text-muted-foreground flex-1 truncate">
-            {user?.username ?? ""}
-          </span>
-          <button
-            onClick={logout}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-            aria-label={t("auth.logout")}
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

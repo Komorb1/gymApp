@@ -34,6 +34,9 @@ jobs:
       - name: Frontend tests
         run: pnpm test
 
+      - name: Build the Lite edition
+        run: pnpm build:lite
+
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -49,6 +52,14 @@ jobs:
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run cargo tests (Lite edition)
+        working-directory: src-tauri
+        run: cargo test --verbose --features lite
+
+      - name: Clippy (Lite edition)
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --features lite -- -D warnings
 
   release-windows:
     needs: test-before-release
@@ -93,3 +104,28 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
+
+      - name: Build the Lite edition
+        run: pnpm tauri build --config src-tauri/tauri.lite.conf.json --features lite --target x86_64-pc-windows-msvc
+
+      - name: Attach the Lite installers to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tag="${{ github.ref_name }}"
+          installers=(
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          )
+          if [ ${#installers[@]} -eq 0 ]; then
+            echo "No Lite installers found" >&2
+            exit 1
+          fi
+          for installer in "${installers[@]}"; do
+            echo "Attaching $installer"
+            gh release upload "$tag" "$installer" --clobber
+          done
+          gh release view "$tag" --json tagName,assets

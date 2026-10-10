@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "SK GYM"
+    "name": "SK GYM",
+    "liteName": "SK GYM Lite"
   },
   "nav": {
     "dashboard": "الرئيسية",
@@ -148,6 +149,7 @@
     "phone": "رقم الهاتف (واتساب)",
     "phoneIsWhatsapp": "سيُستخدم هذا الرقم للتواصل عبر واتساب.",
     "phoneDigitsOnly": "رقم الهاتف يجب أن يحتوي على أرقام فقط.",
+    "phoneTaken": "رقم الواتساب هذا مسجل بالفعل لعضو آخر.",
     "whatsappNo": "رقم واتساب",
     "email": "البريد الإلكتروني",
     "birthDate": "تاريخ الميلاد",
@@ -195,7 +197,7 @@
     "payment": "الدفع",
     "paidAmount": "المبلغ المدفوع",
     "planPrice": "سعر الباقة",
-    "unpaidAmount": "المبلغ غير المدفوع",
+    "unpaidAmount": "المبلغ المتبقي",
     "confirmEditTitle": "تأكيد تعديل العضوية",
     "confirmEditWarning": "هذه العضوية منتهية أو ملغاة. هل تريد حفظ هذه التغييرات على أي حال؟",
     "expiredWindow": "يتم عرض العضويات التي انتهت خلال آخر 30 يومًا فقط.",

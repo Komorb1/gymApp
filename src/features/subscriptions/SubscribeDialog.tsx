@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 
@@ -172,15 +172,20 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
             <Label className="font-cairo">
               {t("subscriptions.paidAmount")}
             </Label>
-            <Input
-              type="number"
-              min={0}
-              max={finalPriceCents / 100}
-              step="0.01"
-              value={paidAmount}
-              onChange={(event) => setPaidAmount(event.target.value)}
-              className="font-cairo"
-            />
+            <div className="relative flex items-center">
+              <Input
+                type="number"
+                min={0}
+                max={finalPriceCents / 100}
+                step="0.01"
+                value={paidAmount}
+                onChange={(event) => setPaidAmount(event.target.value)}
+                className="pe-14 font-cairo"
+              />
+              <span className="pointer-events-none absolute end-3 text-sm text-muted-foreground font-cairo">
+                {currencySymbol()}
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground font-cairo">
               {t("subscriptions.unpaidAmount")}:{" "}
               {formatMoney(unpaidAmountCents)}

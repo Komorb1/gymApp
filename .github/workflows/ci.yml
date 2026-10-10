@@ -35,6 +35,12 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Build the complete edition
+        run: pnpm build
+
+      - name: Build the Lite edition
+        run: pnpm build:lite
+
   test-rust:
     runs-on: ubuntu-latest
     steps:
@@ -70,3 +76,11 @@ jobs:
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run cargo tests (Lite edition)
+        working-directory: src-tauri
+        run: cargo test --verbose --features lite
+
+      - name: Clippy (Lite edition)
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --features lite -- -D warnings

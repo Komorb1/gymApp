@@ -29,3 +29,5 @@ once_cell = "1"
 [features]
 # DO NOT REMOVE - used for production builds
 custom-protocol = ["tauri/custom-protocol"]
+# Lite edition: single-desk build without accounts, settings, reports or the activity log
+lite = []

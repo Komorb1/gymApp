@@ -125,6 +125,74 @@ fn user_by_id(conn: &rusqlite::Connection, id: i64) -> AppResult<User> {
     })
 }
 
+#[cfg(any(feature = "lite", test))]
+pub fn ensure_local_user(conn: &rusqlite::Connection) -> AppResult<i64> {
+    use argon2::password_hash::rand_core::RngCore;
+
+    let existing = conn
+        .query_row(
+            "SELECT id FROM users WHERE is_deleted = 0 ORDER BY is_owner DESC, id LIMIT 1",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .ok();
+    if let Some(id) = existing {
+        return Ok(id);
+    }
+    let mut bytes = [0_u8; 32];
+    OsRng.fill_bytes(&mut bytes);
+    let secret: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    let pin_hash = hash_password(&secret)?;
+    conn.execute(
+        "INSERT INTO users (username, pin_hash, access_level, is_owner) VALUES ('local', ?1, 'management', 1)",
+        rusqlite::params![pin_hash],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[cfg(any(feature = "lite", test))]
+pub fn seed_default_gym_name(conn: &rusqlite::Connection) -> AppResult<()> {
+    conn.execute(
+        "UPDATE settings SET
+            gym_name = 'SK GYM',
+            updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = 1 AND (gym_name IS NULL OR TRIM(gym_name) = '')",
+        [],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn local_session(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+) -> AppResult<AuthSession> {
+    #[cfg(not(feature = "lite"))]
+    {
+        let _ = (db, sessions);
+        Err(AppError::Auth(
+            "Local sessions are only available in the Lite edition".into(),
+        ))
+    }
+
+    #[cfg(feature = "lite")]
+    {
+        let user = db.with_conn(|conn| {
+            let transaction = conn.transaction()?;
+            let user_id = ensure_local_user(&transaction)?;
+            seed_default_gym_name(&transaction)?;
+            let user = user_by_id(&transaction, user_id)?;
+            transaction.commit()?;
+            Ok(user)
+        })?;
+        let session_token = sessions.issue(user.id)?;
+        Ok(AuthSession {
+            user,
+            session_token,
+        })
+    }
+}
+
 #[tauri::command]
 pub async fn setup_status(db: State<'_, Db>) -> AppResult<SetupStatus> {
     db.with_conn(|conn| {
@@ -462,9 +530,10 @@ pub async fn delete_user(
 #[cfg(test)]
 mod tests {
     use super::{
-        hash_password, validate_credentials, validate_owner_update, validate_user_deletion,
-        verify_password,
+        ensure_local_user, hash_password, seed_default_gym_name, validate_credentials,
+        validate_owner_update, validate_user_deletion, verify_password,
     };
+    use rusqlite::Connection;
 
     #[test]
     fn password_requires_six_characters() {
@@ -504,5 +573,72 @@ mod tests {
         assert!(validate_user_deletion(1, 1, false, "staff").is_err());
         assert!(validate_user_deletion(1, 2, true, "management").is_err());
         assert!(validate_user_deletion(1, 2, false, "management").is_err());
+    }
+
+    #[test]
+    fn local_user_is_provisioned_once_and_is_management() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        crate::db::migrations::runner().run(&mut conn).unwrap();
+
+        let first = ensure_local_user(&conn).unwrap();
+        let second = ensure_local_user(&conn).unwrap();
+        assert_eq!(first, second);
+
+        let (count, access_level, is_owner): (i64, String, i64) = conn
+            .query_row(
+                "SELECT COUNT(*), MIN(access_level), MAX(is_owner) FROM users",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(access_level, "management");
+        assert_eq!(is_owner, 1);
+    }
+
+    #[test]
+    fn local_user_reuses_an_existing_account() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        crate::db::migrations::runner().run(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO users (username, pin_hash, access_level) VALUES ('admin', 'hash', 'staff')",
+            [],
+        )
+        .unwrap();
+
+        assert_eq!(ensure_local_user(&conn).unwrap(), 1);
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn default_gym_name_only_fills_an_empty_name() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::runner().run(&mut conn).unwrap();
+
+        seed_default_gym_name(&conn).unwrap();
+        let name: String = conn
+            .query_row("SELECT gym_name FROM settings WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(name, "SK GYM");
+
+        conn.execute(
+            "UPDATE settings SET gym_name = 'Another Gym' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        seed_default_gym_name(&conn).unwrap();
+        let kept: String = conn
+            .query_row("SELECT gym_name FROM settings WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(kept, "Another Gym");
     }
 }

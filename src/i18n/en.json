@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "SK GYM"
+    "name": "SK GYM",
+    "liteName": "SK GYM Lite"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -148,6 +149,7 @@
     "phone": "Phone (WhatsApp)",
     "phoneIsWhatsapp": "This number is used for WhatsApp contact.",
     "phoneDigitsOnly": "Phone number can contain digits only.",
+    "phoneTaken": "This WhatsApp number is already registered for another member.",
     "whatsappNo": "WhatsApp No.",
     "email": "Email",
     "birthDate": "Date of Birth",
@@ -195,7 +197,7 @@
     "payment": "Payment",
     "paidAmount": "Paid Amount",
     "planPrice": "Plan Price",
-    "unpaidAmount": "Un-paid Amount",
+    "unpaidAmount": "Balance Amount",
     "confirmEditTitle": "Confirm membership edit",
     "confirmEditWarning": "This membership is expired or cancelled. Save these changes anyway?",
     "expiredWindow": "Only memberships that expired within the last 30 days are listed.",

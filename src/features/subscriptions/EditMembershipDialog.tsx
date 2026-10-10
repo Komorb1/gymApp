@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
-import { formatMoney, fullName, isExpired } from "@/lib/format";
+import { formatMoney, fullName, isExpired, currencySymbol } from "@/lib/format";
 import {
   discountedPriceCents,
   membershipPlanPriceCents,
@@ -190,15 +190,20 @@ export function EditMembershipDialog({
             <Label className="font-cairo">
               {t("subscriptions.paidAmount")}
             </Label>
-            <Input
-              type="number"
-              min={0}
-              max={finalPriceCents / 100}
-              step="0.01"
-              value={paidAmount}
-              onChange={(event) => setPaidAmount(event.target.value)}
-              className="font-cairo"
-            />
+            <div className="relative flex items-center">
+              <Input
+                type="number"
+                min={0}
+                max={finalPriceCents / 100}
+                step="0.01"
+                value={paidAmount}
+                onChange={(event) => setPaidAmount(event.target.value)}
+                className="pe-14 font-cairo"
+              />
+              <span className="pointer-events-none absolute end-3 text-sm text-muted-foreground font-cairo">
+                {currencySymbol()}
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground font-cairo">
               {t("subscriptions.unpaidAmount")}:{" "}
               {formatMoney(unpaidAmountCents)}

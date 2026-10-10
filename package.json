@@ -6,9 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lite": "vite --mode lite",
     "build": "tsc -b && vite build",
+    "build:lite": "tsc -b && vite build --mode lite",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev:lite": "tauri dev --config src-tauri/tauri.lite.conf.json --features lite",
+    "tauri:build:lite": "tauri build --config src-tauri/tauri.lite.conf.json --features lite",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",

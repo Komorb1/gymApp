@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { memberSchema, digitsOnly, type MemberFormData } from "@/lib/validation";
 import { memberPhotoUrl } from "@/lib/format";
+import { errorMessage } from "@/lib/errors";
 import {
   useCreateMember,
   useUpdateMember,
@@ -138,7 +139,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
       onClose();
     } catch (err) {
-      setSaveError(String(err));
+      setSaveError(errorMessage(err, t));
     }
   };
 

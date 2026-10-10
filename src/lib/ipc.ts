@@ -238,6 +238,10 @@ export function loginUser(
   return invoke<AuthSession>("login", { username, password });
 }
 
+export function localSession(): Promise<AuthSession> {
+  return invoke<AuthSession>("local_session");
+}
+
 export function logoutUser(sessionToken: string): Promise<void> {
   return invoke<void>("logout", { sessionToken });
 }

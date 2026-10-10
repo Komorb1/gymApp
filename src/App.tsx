@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 import { GymLogo } from "@/components/brand/GymLogo";
-import { fetchSetupStatus } from "@/lib/ipc";
+import { fetchSetupStatus, localSession } from "@/lib/ipc";
+import { IS_LITE } from "@/lib/edition";
+import { bootState, type BootState } from "@/lib/boot";
 import { useAuthStore } from "@/stores/auth";
 import { useSettings } from "@/hooks/useSettings";
 import { useGymName } from "@/hooks/useGymName";
@@ -10,7 +12,7 @@ import { SetupWizard } from "@/features/auth/SetupWizard";
 import { Login } from "@/features/auth/Login";
 import { AppShell } from "@/components/layout/AppShell";
 
-type AppState = "checking" | "setup" | "login" | "app";
+type AppState = BootState;
 
 function LoadingScreen() {
   return (
@@ -25,6 +27,7 @@ function LoadingScreen() {
 
 function App() {
   const user = useAuthStore((s) => s.user);
+  const setSession = useAuthStore((s) => s.setSession);
   const [state, setState] = useState<AppState>("checking");
 
   useSettings();
@@ -34,21 +37,44 @@ function App() {
     if (user) return;
     let cancelled = false;
     setState((current) => (current === "setup" ? "checking" : current));
-    async function check() {
+    async function start() {
+      if (IS_LITE) {
+        try {
+          const session = await localSession();
+          if (!cancelled) {
+            setSession(session);
+            setState(
+              bootState({ isLite: true, hasSession: true, needsSetup: false }),
+            );
+          }
+        } catch (error) {
+          console.error("Lite session failed", error);
+        }
+        return;
+      }
       try {
         const status = await fetchSetupStatus();
-        if (!cancelled) setState(status.needs_setup ? "setup" : "login");
+        if (!cancelled) {
+          setState(
+            bootState({
+              isLite: false,
+              hasSession: false,
+              needsSetup: status.needs_setup,
+            }),
+          );
+        }
       } catch {
         if (!cancelled) setState("login");
       }
     }
-    check();
+    start();
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, setSession]);
 
   if (state === "checking") return <LoadingScreen />;
+  if (IS_LITE) return user ? <AppShell /> : <LoadingScreen />;
   if (state === "setup")
     return <SetupWizard onComplete={() => setState("login")} />;
   if (!user) return <Login />;
