@@ -9,7 +9,8 @@ build/
 
 # Rust / Tauri
 src-tauri/target/
-src-tauri/Cargo.lock
+# Cargo.lock is committed on purpose: it keeps this application's Tauri crate
+# versions identical on every machine and in CI.
 src-tauri/gen/
 
 # Logs
