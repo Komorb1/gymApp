@@ -64,10 +64,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
     const payload = { ...data, price_cents: priceCents };
 
     if (isEdit && plan) {
-      updateMut.mutate(
-        { id: plan.id, ...payload },
-        { onSuccess: onClose },
-      );
+      updateMut.mutate({ id: plan.id, ...payload }, { onSuccess: onClose });
     } else {
       createMut.mutate(payload, { onSuccess: onClose });
     }
@@ -129,7 +126,12 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} className="font-cairo">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="font-cairo"
+            >
               {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isPending} className="font-cairo">

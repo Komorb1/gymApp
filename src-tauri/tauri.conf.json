@@ -52,9 +52,7 @@
   "plugins": {
     "updater": {
       "active": false,
-      "endpoints": [
-        "https://gymapp-releases.example.com/latest.json"
-      ],
+      "endpoints": ["https://gymapp-releases.example.com/latest.json"],
       "dialog": true,
       "pubkey": "REPLACE_WITH_TAURI_SIGNING_PUBKEY"
     }

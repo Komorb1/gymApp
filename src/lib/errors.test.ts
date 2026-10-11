@@ -16,8 +16,8 @@ describe("ipc error messages", () => {
   });
 
   it("keeps unrelated errors untouched", () => {
-    expect(errorMessage("Validation error: First name is required", translate)).toBe(
-      "Validation error: First name is required",
-    );
+    expect(
+      errorMessage("Validation error: First name is required", translate),
+    ).toBe("Validation error: First name is required");
   });
 });

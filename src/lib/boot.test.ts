@@ -28,8 +28,8 @@ describe("app boot state", () => {
     expect(
       bootState({ isLite: true, hasSession: true, needsSetup: false }),
     ).toBe("app");
-    expect(bootState({ isLite: true, hasSession: false, needsSetup: true })).toBe(
-      "checking",
-    );
+    expect(
+      bootState({ isLite: true, hasSession: false, needsSetup: true }),
+    ).toBe("checking");
   });
 });
