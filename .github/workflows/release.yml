@@ -101,14 +101,9 @@ jobs:
             - **SK GYM Lite**: dashboard, members, memberships and plans only. No login, no accounts, no settings, reports or activity pages. It keeps its own data folder, so both editions can be installed and used side by side.
 
             ### Changes in ${{ github.ref_name }}
-            - Added the SK GYM Lite edition, built from the same source as the complete edition
-            - The application is now named SK GYM: installer, window title, in-app name and page title
-            - The word "Subscriptions" is now "Memberships" everywhere, in Arabic and English
-            - The memberships table shows Paid Amount, Plan Price and a new Balance Amount column
-            - Amounts show the dirham symbol, and date fields use a calendar icon that stays visible in dark mode and opens from anywhere in the field
-            - Editing a plan never changes the price stored with an existing membership, not even when a discount is edited
-            - A WhatsApp number already used by another member is refused, with the message in the language of the interface
-            Note: the repository name, the app identifier and your existing data are unchanged.
+            - Maintenance release with no functional changes: the same features and behaviour as v0.1.4
+            - Generated build files (vite.config.js and TypeScript build info) are no longer created in the repository root, so the app always loads its configured Vite settings from the source file
+            - The codebase is now uniformly formatted, with the dependency lockfile and build output excluded from formatting
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
