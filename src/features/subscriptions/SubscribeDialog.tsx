@@ -109,7 +109,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                 {t("plans.empty")}
               </p>
             ) : (
-              <div className="space-y-1">
+              <div className="max-h-44 space-y-1 overflow-y-auto pe-1">
                 {activePlans.map((p) => (
                   <button
                     key={p.id}

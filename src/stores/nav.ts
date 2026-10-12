@@ -10,14 +10,29 @@ export type Page =
   | "member-profile"
   | "activity";
 
+export type MemberProfileTab = "overview" | "subs";
+
 interface NavState {
   page: Page;
   memberId: number | null;
-  navigate: (page: Page, memberId?: number) => void;
+  memberProfileTab: MemberProfileTab;
+  navigate: (
+    page: Page,
+    memberId?: number,
+    memberProfileTab?: MemberProfileTab,
+  ) => void;
+  setMemberProfileTab: (tab: MemberProfileTab) => void;
 }
 
 export const useNavStore = create<NavState>((set) => ({
   page: "dashboard",
   memberId: null,
-  navigate: (page, memberId) => set({ page, memberId: memberId ?? null }),
+  memberProfileTab: "overview",
+  navigate: (page, memberId, memberProfileTab) =>
+    set({
+      page,
+      memberId: memberId ?? null,
+      memberProfileTab: memberProfileTab ?? "overview",
+    }),
+  setMemberProfileTab: (tab) => set({ memberProfileTab: tab }),
 }));

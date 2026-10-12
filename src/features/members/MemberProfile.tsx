@@ -31,6 +31,7 @@ import {
 } from "@/lib/format";
 import { SubscribeDialog } from "@/features/subscriptions/SubscribeDialog";
 import { EditMembershipDialog } from "@/features/subscriptions/EditMembershipDialog";
+import { FreezeDialog } from "@/features/subscriptions/FreezeDialog";
 import { MemberForm } from "./MemberForm";
 import type { Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
@@ -51,6 +52,8 @@ export function MemberProfile() {
   const { t } = useTranslation();
   const memberId = useNavStore((s) => s.memberId);
   const navigate = useNavStore((s) => s.navigate);
+  const profileTab = useNavStore((s) => s.memberProfileTab);
+  const setProfileTab = useNavStore((s) => s.setMemberProfileTab);
   const { data: member, isLoading } = useMember(memberId);
   const { data: flags = [] } = useMemberFlags(memberId);
   const { data: subs = [] } = useMemberSubscriptions(memberId);
@@ -67,6 +70,7 @@ export function MemberProfile() {
   const [subPage, setSubPage] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
+  const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [editSubscription, setEditSubscription] = useState<Subscription | null>(
     null,
   );
@@ -179,7 +183,12 @@ export function MemberProfile() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="overview">
+      <Tabs
+        value={profileTab}
+        onValueChange={(value) =>
+          setProfileTab(value === "subs" ? "subs" : "overview")
+        }
+      >
         <TabsList>
           <TabsTrigger value="overview" className="font-cairo">
             {t("members.title")}
@@ -412,6 +421,16 @@ export function MemberProfile() {
                                   ) : null
                                 ) : s.status === "active" ? (
                                   <>
+                                    {isManagement && !isExpired(s.end_date) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setFreezeTarget(s)}
+                                        className="font-cairo"
+                                      >
+                                        {t("subscriptions.freeze")}
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -479,6 +498,12 @@ export function MemberProfile() {
         <SubscribeDialog
           member={member}
           onClose={() => setShowSubscribe(false)}
+        />
+      )}
+      {freezeTarget && (
+        <FreezeDialog
+          subscription={freezeTarget}
+          onClose={() => setFreezeTarget(null)}
         />
       )}
       {showEdit && (

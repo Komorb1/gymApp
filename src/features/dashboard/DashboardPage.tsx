@@ -81,7 +81,9 @@ export function DashboardPage() {
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => navigate("member-profile", s.member_id)}
+                  onClick={() =>
+                    navigate("member-profile", s.member_id, "subs")
+                  }
                   aria-label={s.member_snapshot.first_name}
                   className="w-full flex items-center gap-3 p-2 rounded-md text-start hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >

@@ -112,26 +112,51 @@ export function EditMembershipDialog({
             {fullName(subscription.member_snapshot)}
           </p>
           <div className="space-y-2">
-            <Label htmlFor="membership-plan" className="font-cairo">
-              {t("subscriptions.plan")}
-            </Label>
-            <select
-              id="membership-plan"
-              value={planId}
-              onChange={(event) => setPlanId(event.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+            <Label className="font-cairo">{t("subscriptions.plan")}</Label>
+            <div className="max-h-44 space-y-1 overflow-y-auto pe-1">
               {!plans.some((plan) => plan.id === subscription.plan_id) && (
-                <option value={subscription.plan_id}>
-                  {subscription.plan_snapshot.name}
-                </option>
+                <button
+                  type="button"
+                  onClick={() => setPlanId(String(subscription.plan_id))}
+                  className={`w-full flex items-center justify-between p-2 rounded-md border transition-colors font-cairo ${
+                    Number(planId) === subscription.plan_id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <span>{subscription.plan_snapshot.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {subscription.plan_snapshot.duration_days}d ·{" "}
+                    {formatMoney(subscription.plan_snapshot.price_cents)}
+                  </span>
+                </button>
               )}
               {plans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name}
-                </option>
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => setPlanId(String(plan.id))}
+                  className={`w-full flex items-center justify-between p-2 rounded-md border transition-colors font-cairo ${
+                    Number(planId) === plan.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <span>{plan.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {plan.id === subscription.plan_id
+                      ? subscription.plan_snapshot.duration_days
+                      : plan.duration_days}
+                    d ·{" "}
+                    {formatMoney(
+                      plan.id === subscription.plan_id
+                        ? subscription.plan_snapshot.price_cents
+                        : plan.price_cents,
+                    )}
+                  </span>
+                </button>
               ))}
-            </select>
+            </div>
             <p className="text-sm text-muted-foreground font-cairo">
               {t("subscriptions.planPrice")}: {formatMoney(planPriceCents)}
             </p>

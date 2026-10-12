@@ -234,7 +234,16 @@ export function ReportsPage() {
                       </div>
                     </td>
                     <td className="max-w-56 p-3 text-muted-foreground font-cairo">
-                      {subscription.notes ?? "—"}
+                      {subscription.notes ? (
+                        <p
+                          className="line-clamp-2 break-words"
+                          title={subscription.notes}
+                        >
+                          {subscription.notes}
+                        </p>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))

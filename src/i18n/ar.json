@@ -186,6 +186,7 @@
     "status": "الحالة",
     "active": "نشط",
     "expired": "منتهي",
+    "expiring": "قريب الانتهاء",
     "frozen": "مجمّد",
     "cancelled": "ملغي",
     "pending": "بانتظار الموافقة",

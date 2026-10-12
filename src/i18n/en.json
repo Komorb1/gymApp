@@ -186,6 +186,7 @@
     "status": "Status",
     "active": "Active",
     "expired": "Expired",
+    "expiring": "Expiring soon",
     "frozen": "Frozen",
     "cancelled": "Cancelled",
     "pending": "Pending approval",
