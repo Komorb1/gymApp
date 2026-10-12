@@ -103,8 +103,12 @@ jobs:
             ### Changes in ${{ github.ref_name }}
             - Renewing a membership now adds the new membership while keeping the current one active until it expires, instead of cancelling it
             - Expired memberships can no longer be frozen; the freeze action is hidden and refused by the backend
-            - The members page gains freeze and unfreeze actions for a member's current membership (management only)
+            - Freeze and unfreeze actions are available on the member profile's membership table (management only)
             - Long lists (plans, members, memberships, reports, activity) now scroll instead of being cut off at the window edge
+            - Dialogs cap to the window height and their plan lists scroll internally, so many plans no longer push buttons off screen
+            - Long membership notes clamp inside their cell instead of stretching the reports table sideways
+            - The edit membership plan picker matches the app's styling instead of a native dropdown
+            - Expiring soon members open the profile directly on the memberships tab, and the expiring badge no longer renders a raw translation key
             - Membership tables show the date each membership was created
           releaseDraft: false
           prerelease: true
