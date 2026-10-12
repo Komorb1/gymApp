@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Pencil, Trash2, User } from "lucide-react";
+import { Plus, Search, Pencil, Snowflake, Sun, Trash2, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,20 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useMembers, useDeleteMember } from "@/hooks/useMembers";
+import {
+  useSubscriptions,
+  useUnfreezeSubscription,
+} from "@/hooks/useSubscriptions";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useNavStore } from "@/stores/nav";
-import { memberPhotoUrl, formatDate, fullName } from "@/lib/format";
-import type { Member } from "@/lib/ipc";
+import {
+  memberPhotoUrl,
+  formatDate,
+  fullName,
+  isExpired,
+} from "@/lib/format";
+import type { Member, Subscription } from "@/lib/ipc";
+import { FreezeDialog } from "@/features/subscriptions/FreezeDialog";
 import { MemberForm } from "./MemberForm";
 import { useAuthStore } from "@/stores/auth";
 
@@ -26,7 +36,9 @@ export function MembersPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const { data: members = [], isLoading } = useMembers(debouncedSearch);
+  const { data: subs = [] } = useSubscriptions();
   const deleteMut = useDeleteMember();
+  const unfreezeMut = useUnfreezeSubscription();
   const isManagement = useAuthStore(
     (state) => state.user?.access_level === "management",
   );
@@ -35,7 +47,24 @@ export function MembersPage() {
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const membershipByMember = useMemo(() => {
+    const map = new Map<number, Subscription>();
+    for (const s of subs) {
+      if (s.status !== "active" || isExpired(s.end_date)) continue;
+      const existing = map.get(s.member_id);
+      if (!existing || s.start_date < existing.start_date) {
+        map.set(s.member_id, s);
+      }
+    }
+    for (const s of subs) {
+      if (s.status !== "frozen") continue;
+      map.set(s.member_id, s);
+    }
+    return map;
+  }, [subs]);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -133,7 +162,9 @@ export function MembersPage() {
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => (
+              {members.map((m) => {
+                const membership = membershipByMember.get(m.id);
+                return (
                 <tr
                   key={m.id}
                   onClick={() => navigate("member-profile", m.id)}
@@ -177,6 +208,32 @@ export function MembersPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
+                      {isManagement && membership?.status === "active" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFreezeTarget(membership);
+                          }}
+                          aria-label={t("subscriptions.freeze")}
+                        >
+                          <Snowflake className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {isManagement && membership?.status === "frozen" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            unfreezeMut.mutate(membership.id);
+                          }}
+                          aria-label={t("subscriptions.unfreeze")}
+                        >
+                          <Sun className="w-4 h-4" />
+                        </Button>
+                      )}
                       {isManagement && (
                         <Button
                           variant="ghost"
@@ -190,7 +247,8 @@ export function MembersPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -203,6 +261,13 @@ export function MembersPage() {
             setShowForm(false);
             setEditMember(null);
           }}
+        />
+      )}
+
+      {freezeTarget && (
+        <FreezeDialog
+          subscription={freezeTarget}
+          onClose={() => setFreezeTarget(null)}
         />
       )}
 

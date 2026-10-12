@@ -170,6 +170,7 @@ fn ensure_no_current_membership(
     conn: &rusqlite::Connection,
     member_id: i64,
     excluded_subscription_id: Option<i64>,
+    predecessor_subscription_id: Option<i64>,
     today: &str,
 ) -> AppResult<()> {
     let count: i64 = conn.query_row(
@@ -177,13 +178,33 @@ fn ensure_no_current_membership(
          WHERE member_id = ?1
            AND status IN ('active', 'frozen')
            AND end_date >= ?2
-           AND (?3 IS NULL OR id != ?3)",
-        rusqlite::params![member_id, today, excluded_subscription_id],
+           AND (?3 IS NULL OR id != ?3)
+           AND (?4 IS NULL OR id != ?4)",
+        rusqlite::params![
+            member_id,
+            today,
+            excluded_subscription_id,
+            predecessor_subscription_id
+        ],
         |row| row.get(0),
     )?;
     if count > 0 {
         return Err(AppError::Conflict(
             "Member already has an active membership".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_membership_can_freeze(before: &Subscription, today: chrono::NaiveDate) -> AppResult<()> {
+    if before.status != "active" {
+        return Err(AppError::Conflict(
+            "Only active memberships can be frozen".into(),
+        ));
+    }
+    if parse_date(&before.end_date, "membership end date")? < today {
+        return Err(AppError::Conflict(
+            "Expired memberships cannot be frozen".into(),
         ));
     }
     Ok(())
@@ -277,12 +298,15 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 #[cfg(test)]
 mod tests {
     use super::{
-        can_review_discount_request, discounted_price_cents, edited_membership_status,
-        ensure_membership_dates_are_valid, ensure_no_current_membership, expired_overdue_count,
-        membership_creation_status, reviewed_membership_status, validate_paid_amount,
+        apply_discount_review, can_review_discount_request, discounted_price_cents,
+        edited_membership_status, ensure_membership_can_freeze, ensure_membership_dates_are_valid,
+        ensure_no_current_membership, expired_overdue_count, membership_creation_status,
+        renew_membership, reviewed_membership_status, validate_paid_amount,
     };
     use crate::db::migrations;
-    use chrono::NaiveDate;
+    use crate::models::{MemberSnapshot, PlanSnapshot, RenewSubscriptionInput, Subscription};
+    use crate::session::Sessions;
+    use chrono::{Duration, NaiveDate, Utc};
     use rusqlite::Connection;
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
@@ -378,9 +402,49 @@ mod tests {
         )
         .unwrap();
 
-        assert!(ensure_no_current_membership(&conn, 1, None, "2026-01-15").is_err());
-        assert!(ensure_no_current_membership(&conn, 1, Some(1), "2026-01-15").is_ok());
-        assert!(ensure_no_current_membership(&conn, 1, None, "2026-02-02").is_ok());
+        assert!(ensure_no_current_membership(&conn, 1, None, None, "2026-01-15").is_err());
+        assert!(ensure_no_current_membership(&conn, 1, Some(1), None, "2026-01-15").is_ok());
+        assert!(ensure_no_current_membership(&conn, 1, None, None, "2026-02-02").is_ok());
+    }
+
+    #[test]
+    fn a_renewal_overlaps_only_its_own_predecessor() {
+        let conn = setup_conn();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_end = (today + Duration::days(10)).format("%Y-%m-%d").to_string();
+        let renewal_end = (today + Duration::days(40)).format("%Y-%m-%d").to_string();
+        let previous_id = insert_active_membership(&conn, &previous_end);
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status, final_price_cents, paid_amount_cents,
+                renews_subscription_id
+             ) VALUES (1, 1, ?1, ?2, ?3, ?4, 'active', 5000, 5000, ?5)",
+            rusqlite::params![
+                serde_json::to_string(&member_snapshot_fixture()).unwrap(),
+                serde_json::to_string(&plan_snapshot_fixture()).unwrap(),
+                previous_end,
+                renewal_end,
+                previous_id
+            ],
+        )
+        .unwrap();
+        let renewal_id = conn.last_insert_rowid();
+        let today_string = today.format("%Y-%m-%d").to_string();
+
+        assert!(ensure_no_current_membership(
+            &conn,
+            1,
+            Some(renewal_id),
+            Some(previous_id),
+            &today_string
+        )
+        .is_ok());
+        assert!(
+            ensure_no_current_membership(&conn, 1, Some(renewal_id), None, &today_string).is_err()
+        );
+        assert!(ensure_no_current_membership(&conn, 1, None, None, &today_string).is_err());
     }
 
     #[test]
@@ -503,6 +567,204 @@ mod tests {
 
         assert_eq!(expired_overdue_count(&conn, date(2026, 2, 15)).unwrap(), 1);
     }
+
+    fn member_snapshot_fixture() -> MemberSnapshot {
+        MemberSnapshot {
+            id: 1,
+            first_name: "Test".into(),
+            middle_name: None,
+            last_name: "Member".into(),
+            id_number: None,
+            phone: "123".into(),
+            whatsapp_no: None,
+            email: None,
+            birth_date: None,
+            notes: None,
+            photo_path: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+        }
+    }
+
+    fn plan_snapshot_fixture() -> PlanSnapshot {
+        PlanSnapshot {
+            id: 1,
+            name: "Monthly".into(),
+            duration_days: 30,
+            price_cents: 5000,
+        }
+    }
+
+    fn subscription_fixture(status: &str, end_date: String) -> Subscription {
+        Subscription {
+            id: 1,
+            member_id: 1,
+            plan_id: 1,
+            member_snapshot: member_snapshot_fixture(),
+            plan_snapshot: plan_snapshot_fixture(),
+            start_date: "2026-01-01".into(),
+            end_date,
+            status: status.into(),
+            frozen_at: None,
+            frozen_until: None,
+            final_price_cents: 5000,
+            paid_amount_cents: 5000,
+            unpaid_amount_cents: 0,
+            discount_percent: 0,
+            is_paid: true,
+            discount_requested_by_user_id: None,
+            discount_approval_status: None,
+            discount_reviewed_by_user_id: None,
+            discount_reviewed_at: None,
+            renews_subscription_id: None,
+            notes: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        }
+    }
+
+    fn setup_conn() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations::runner().run(&mut conn).unwrap();
+        conn
+    }
+
+    fn insert_user(conn: &Connection, username: &str, access_level: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO users (username, pin_hash, access_level) VALUES (?1, 'pin', ?2)",
+            rusqlite::params![username, access_level],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn insert_member_and_plan(conn: &Connection) {
+        conn.execute(
+            "INSERT INTO members (first_name, last_name, phone) VALUES ('Test', 'Member', '123')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO plans (name, duration_days, price_cents) VALUES ('Monthly', 30, 5000)",
+            [],
+        )
+        .unwrap();
+    }
+
+    fn insert_active_membership(conn: &Connection, end_date: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status, final_price_cents, paid_amount_cents
+             ) VALUES (1, 1, ?1, ?2, date(?3, '-30 days'), ?3, 'active', 5000, 5000)",
+            rusqlite::params![
+                serde_json::to_string(&member_snapshot_fixture()).unwrap(),
+                serde_json::to_string(&plan_snapshot_fixture()).unwrap(),
+                end_date
+            ],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn membership_status(conn: &Connection, id: i64) -> String {
+        conn.query_row(
+            "SELECT status FROM subscriptions WHERE id = ?1",
+            rusqlite::params![id],
+            |row| row.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn renewal_keeps_previous_membership_active_until_it_expires() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_end = (today + Duration::days(25)).format("%Y-%m-%d").to_string();
+        let previous_id = insert_active_membership(&conn, &previous_end);
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(renewed.status, "active");
+        assert_eq!(renewed.start_date, previous_end);
+        assert_eq!(renewed.renews_subscription_id, Some(previous_id));
+        assert_eq!(membership_status(&conn, previous_id), "active");
+    }
+
+    #[test]
+    fn approved_staff_renewal_keeps_previous_membership_active() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let staff = insert_user(&conn, "staff", "staff");
+        let manager = insert_user(&conn, "manager", "management");
+        let staff_token = sessions.issue(staff).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_end = (today + Duration::days(25)).format("%Y-%m-%d").to_string();
+        let previous_id = insert_active_membership(&conn, &previous_end);
+
+        let pending = renew_membership(
+            &mut conn,
+            &sessions,
+            &staff_token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 10,
+                paid_amount_cents: 4500,
+                notes: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(pending.status, "pending");
+        assert_eq!(membership_status(&conn, previous_id), "active");
+
+        let approved = apply_discount_review(&mut conn, manager, pending.id, true).unwrap();
+
+        assert_eq!(approved.status, "active");
+        assert_eq!(membership_status(&conn, previous_id), "active");
+    }
+
+    #[test]
+    fn expired_memberships_cannot_be_frozen() {
+        let today = Utc::now().date_naive();
+        let future = (today + Duration::days(7)).format("%Y-%m-%d").to_string();
+        let past = (today - Duration::days(1)).format("%Y-%m-%d").to_string();
+
+        assert!(ensure_membership_can_freeze(
+            &subscription_fixture("active", future.clone()),
+            today
+        )
+        .is_ok());
+        assert!(
+            ensure_membership_can_freeze(&subscription_fixture("active", past), today).is_err()
+        );
+        assert!(ensure_membership_can_freeze(
+            &subscription_fixture("frozen", future.clone()),
+            today
+        )
+        .is_err());
+        assert!(
+            ensure_membership_can_freeze(&subscription_fixture("cancelled", future), today)
+                .is_err()
+        );
+    }
 }
 
 #[tauri::command]
@@ -555,7 +817,7 @@ pub async fn create_subscription(
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        ensure_no_current_membership(&transaction, input.member_id, None, &today)?;
+        ensure_no_current_membership(&transaction, input.member_id, None, None, &today)?;
         let status = membership_creation_status(&access_level, input.discount_percent);
         let discount_requester = (status == "pending").then_some(actor_id);
         let start_date = match input.start_date {
@@ -606,16 +868,15 @@ pub async fn create_subscription(
     })
 }
 
-#[tauri::command]
-pub async fn renew_subscription(
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-    session_token: String,
+fn renew_membership(
+    conn: &mut rusqlite::Connection,
+    sessions: &Sessions,
+    session_token: &str,
     input: RenewSubscriptionInput,
 ) -> AppResult<Subscription> {
-    db.with_conn(|conn| {
+    {
         let transaction = conn.transaction()?;
-        let actor_id = require_user(&transaction, &sessions, &session_token)?;
+        let actor_id = require_user(&transaction, sessions, session_token)?;
         let access_level = user_access_level(&transaction, actor_id)?;
         let before = subscription_by_id(&transaction, input.subscription_id)?;
         let member = member_snapshot(&transaction, before.member_id)?;
@@ -630,6 +891,7 @@ pub async fn renew_subscription(
             &transaction,
             before.member_id,
             Some(input.subscription_id),
+            None,
             &today.format("%Y-%m-%d").to_string(),
         )?;
         let previous_end = parse_date(&before.end_date, "membership end date")?;
@@ -663,17 +925,6 @@ pub async fn renew_subscription(
             ],
         )?;
         let new_id = transaction.last_insert_rowid();
-        if status == "active" {
-            transaction.execute(
-                "UPDATE subscriptions SET
-                    status = 'cancelled',
-                    frozen_at = NULL,
-                    frozen_until = NULL,
-                    updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                 WHERE id = ?1",
-                rusqlite::params![input.subscription_id],
-            )?;
-        }
         let previous_after = subscription_by_id(&transaction, input.subscription_id)?;
         let subscription = subscription_by_id(&transaction, new_id)?;
         let before_json = serde_json::to_string(&before)?;
@@ -692,7 +943,17 @@ pub async fn renew_subscription(
         )?;
         transaction.commit()?;
         Ok(subscription)
-    })
+    }
+}
+
+#[tauri::command]
+pub async fn renew_subscription(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+    input: RenewSubscriptionInput,
+) -> AppResult<Subscription> {
+    db.with_conn(|conn| renew_membership(conn, &sessions, &session_token, input))
 }
 
 #[tauri::command]
@@ -713,11 +974,7 @@ pub async fn freeze_subscription(
         let transaction = conn.transaction()?;
         let actor_id = require_management(&transaction, &sessions, &session_token)?;
         let before = subscription_by_id(&transaction, subscription_id)?;
-        if before.status != "active" {
-            return Err(AppError::Conflict(
-                "Only active memberships can be frozen".into(),
-            ));
-        }
+        ensure_membership_can_freeze(&before, chrono::Utc::now().date_naive())?;
         transaction.execute(
             "UPDATE subscriptions SET
                 status = 'frozen',
@@ -839,6 +1096,7 @@ pub async fn update_subscription(
                 &transaction,
                 before.member_id,
                 Some(input.subscription_id),
+                before.renews_subscription_id,
                 &today,
             )?;
         }
@@ -906,17 +1164,6 @@ pub async fn update_subscription(
                 input.subscription_id,
             ],
         )?;
-        if status == "active" && before.status == "pending" {
-            if let Some(previous_id) = before.renews_subscription_id {
-                transaction.execute(
-                    "UPDATE subscriptions SET status = 'cancelled', frozen_at = NULL,
-                        frozen_until = NULL,
-                        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                     WHERE id = ?1",
-                    rusqlite::params![previous_id],
-                )?;
-            }
-        }
         let subscription = subscription_by_id(&transaction, input.subscription_id)?;
         let before_json = serde_json::to_string(&before)?;
         let after_json = serde_json::to_string(&subscription)?;
@@ -934,16 +1181,14 @@ pub async fn update_subscription(
     })
 }
 
-fn review_discount_request(
-    db: &Db,
-    sessions: &Sessions,
-    session_token: &str,
+fn apply_discount_review(
+    conn: &mut rusqlite::Connection,
+    actor_id: i64,
     subscription_id: i64,
     approve: bool,
 ) -> AppResult<Subscription> {
-    db.with_conn(|conn| {
+    {
         let transaction = conn.transaction()?;
-        let actor_id = require_management(&transaction, sessions, session_token)?;
         let before = subscription_by_id(&transaction, subscription_id)?;
         if !can_review_discount_request(&before.status, before.discount_approval_status.as_deref())
         {
@@ -959,6 +1204,7 @@ fn review_discount_request(
                 &transaction,
                 before.member_id,
                 before.renews_subscription_id,
+                Some(subscription_id),
                 &today,
             )?;
         }
@@ -977,17 +1223,6 @@ fn review_discount_request(
                 subscription_id,
             ],
         )?;
-        if approve && status == "active" {
-            if let Some(previous_id) = before.renews_subscription_id {
-                transaction.execute(
-                    "UPDATE subscriptions SET status = 'cancelled', frozen_at = NULL,
-                        frozen_until = NULL,
-                        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                     WHERE id = ?1",
-                    rusqlite::params![previous_id],
-                )?;
-            }
-        }
         let subscription = subscription_by_id(&transaction, subscription_id)?;
         let before_json = serde_json::to_string(&before)?;
         let after_json = serde_json::to_string(&subscription)?;
@@ -1006,6 +1241,19 @@ fn review_discount_request(
         )?;
         transaction.commit()?;
         Ok(subscription)
+    }
+}
+
+fn review_discount_request(
+    db: &Db,
+    sessions: &Sessions,
+    session_token: &str,
+    subscription_id: i64,
+    approve: bool,
+) -> AppResult<Subscription> {
+    db.with_conn(|conn| {
+        let actor_id = require_management(conn, sessions, session_token)?;
+        apply_discount_review(conn, actor_id, subscription_id, approve)
     })
 }
 

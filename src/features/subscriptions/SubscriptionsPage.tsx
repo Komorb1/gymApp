@@ -131,6 +131,9 @@ export function SubscriptionsPage() {
         <td className="p-3 font-cairo text-muted-foreground">
           {formatDate(s.end_date)}
         </td>
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+          {formatDate(s.created_at)}
+        </td>
         <td className="p-3">
           <div className="flex items-center gap-1">
             <Badge
@@ -230,7 +233,7 @@ export function SubscriptionsPage() {
               ) : null
             ) : s.status === "active" ? (
               <>
-                {isManagement && (
+                {isManagement && !isExpired(s.end_date) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -268,7 +271,7 @@ export function SubscriptionsPage() {
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[1320px] text-sm">
+      <table className="w-full min-w-[1420px] text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -282,6 +285,9 @@ export function SubscriptionsPage() {
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.endDate")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("common.created")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.status")}
@@ -307,7 +313,7 @@ export function SubscriptionsPage() {
           {rows.length === 0 ? (
             <tr>
               <td
-                colSpan={10}
+                colSpan={11}
                 className="p-6 text-center text-muted-foreground font-cairo"
               >
                 {t("subscriptions.noActiveSubs")}

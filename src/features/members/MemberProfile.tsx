@@ -291,7 +291,7 @@ export function MemberProfile() {
             ) : (
               <>
                 <div className="rounded-lg border border-border overflow-x-auto">
-                  <table className="w-full min-w-[820px] text-sm">
+                  <table className="w-full min-w-[920px] text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
@@ -302,6 +302,9 @@ export function MemberProfile() {
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.endDate")}
+                        </th>
+                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                          {t("common.created")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.payment")}
@@ -329,6 +332,9 @@ export function MemberProfile() {
                             </td>
                             <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               {formatDate(s.end_date)}
+                            </td>
+                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+                              {formatDate(s.created_at)}
                             </td>
                             <td className="p-3">
                               <div className="flex items-center gap-1 flex-wrap">
