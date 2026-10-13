@@ -18,6 +18,7 @@ const pageTitles: Record<Page, string> = {
   activity: "nav.activity",
   reports: "nav.reports",
   settings: "nav.settings",
+  backup: "nav.backup",
 };
 
 export function Topbar() {

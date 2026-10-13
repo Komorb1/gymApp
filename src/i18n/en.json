@@ -10,6 +10,7 @@
     "plans": "Plans",
     "reports": "Reports",
     "settings": "Settings",
+    "backup": "Backup",
     "activity": "Activity Log"
   },
   "common": {
@@ -39,6 +40,53 @@
     "yes": "Yes",
     "no": "No"
   },
+  "backup": {
+    "title": "Backup",
+    "settingsDescription": "Keep a copy of the gym data and restore it when needed.",
+    "backupNow": "Back Up Now",
+    "restoreFromFolder": "Restore From Folder",
+    "created": "Backup created: {{name}}",
+    "automaticTitle": "Automatic backup",
+    "automaticEnabled": "Back up automatically once a day",
+    "time": "Daily at",
+    "folder": "Backup location",
+    "chooseFolder": "Choose Folder",
+    "useDefaultFolder": "Use Default Folder",
+    "lastBackup": "Last backup",
+    "nextBackup": "Next automatic backup",
+    "never": "Never",
+    "keepNote": "The newest {{count}} automatic backups are kept. Backups you take yourself are never deleted automatically.",
+    "lastError": "The last automatic backup failed",
+    "listTitle": "Backup points",
+    "totalSize": "Total size",
+    "emptyList": "No backups yet",
+    "name": "Backup",
+    "taken": "Taken",
+    "contains": "{{members}} members, {{memberships}} memberships",
+    "containsLabel": "Contains",
+    "size": "Size",
+    "kindLabel": "Created by",
+    "restore": "Restore",
+    "restoreTitle": "Restore this backup?",
+    "restoreWarning": "Your current data will be replaced by this backup.",
+    "currentData": "Your current data",
+    "backupData": "This backup holds",
+    "safetyNote": "A safety copy of your current data is saved first.",
+    "restartNote": "The app will close and reopen on the restored data.",
+    "deleteTitle": "Delete this backup?",
+    "deleteWarning": "The backup folder is removed from disk. This cannot be undone.",
+    "browseTitle": "Choose a backup to restore",
+    "browseFolder": "Browse for a backup folder",
+    "browseEmpty": "No backups were found in that folder",
+    "restoringTitle": "Restoring your data",
+    "restoringMessage": "The app will close and reopen on the restored data.",
+    "safetySaved": "Your previous data is kept as {{name}}",
+    "kind": {
+      "scheduled": "Automatic",
+      "manual": "Manual",
+      "safety": "Before restore"
+    }
+  },
   "activity": {
     "title": "Activity Log",
     "noResults": "No activity found",
@@ -58,6 +106,9 @@
       "email": "Email",
       "birth_date": "Birth date",
       "id_number": "ID number",
+      "backup": "Backup file",
+      "members": "Members",
+      "memberships": "Memberships",
       "notes": "Notes",
       "status": "Status",
       "start_date": "Start date",
@@ -102,14 +153,17 @@
       "user.register": "Staff Registered",
       "user.update": "User Updated",
       "user.delete": "User Deleted",
-      "settings.update": "Settings Updated"
+      "settings.update": "Settings Updated",
+      "backup.delete": "Backup Deleted",
+      "backup.restore": "Backup Restored"
     },
     "targets": {
       "member": "Member",
       "plan": "Plan",
       "subscription": "Membership",
       "user": "User",
-      "settings": "Settings"
+      "settings": "Settings",
+      "backup": "Backup"
     }
   },
   "auth": {

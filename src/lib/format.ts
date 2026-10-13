@@ -42,6 +42,17 @@ export function formatDate(iso: string | null): string {
   }
 }
 
+export function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
 export function fullName(member: {
   first_name: string;
   middle_name?: string | null;

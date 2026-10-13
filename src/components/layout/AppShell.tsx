@@ -11,6 +11,7 @@ import { PlansPage } from "@/features/plans/PlansPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ActivityLogPage } from "@/features/activity/ActivityLogPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
+import { BackupPage } from "@/features/backup/BackupPage";
 import { useAuthStore } from "@/stores/auth";
 
 export function AppShell() {
@@ -38,6 +39,9 @@ export function AppShell() {
           )}
           {page === "settings" && isPageAvailable("settings", IS_LITE) && (
             <SettingsPage />
+          )}
+          {page === "backup" && isPageAvailable("backup", IS_LITE) && (
+            <BackupPage />
           )}
         </main>
       </div>

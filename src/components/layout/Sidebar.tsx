@@ -8,6 +8,7 @@ import {
   LogOut,
   ScrollText,
   FileText,
+  DatabaseBackup,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ const navItems: { page: Page; icon: React.ElementType; key: string }[] = [
   { page: "activity", icon: ScrollText, key: "nav.activity" },
   { page: "reports", icon: FileText, key: "nav.reports" },
   { page: "settings", icon: SettingsIcon, key: "nav.settings" },
+  { page: "backup", icon: DatabaseBackup, key: "nav.backup" },
 ];
 
 export function Sidebar() {

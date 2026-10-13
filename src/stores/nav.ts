@@ -8,7 +8,8 @@ export type Page =
   | "reports"
   | "settings"
   | "member-profile"
-  | "activity";
+  | "activity"
+  | "backup";
 
 export type MemberProfileTab = "overview" | "subs";
 

@@ -490,3 +490,89 @@ export function listActivityLogs(
     limit: limit ?? null,
   });
 }
+
+export type BackupKind = "scheduled" | "manual" | "safety";
+
+export type BackupSummary = {
+  path: string;
+  name: string;
+  kind: BackupKind;
+  created_at: string;
+  app_version: string;
+  members: number;
+  memberships: number;
+  size_bytes: number;
+};
+
+export type BackupStatus = {
+  enabled: boolean;
+  time: string;
+  folder: string;
+  is_default_folder: boolean;
+  last_backup_at: string | null;
+  last_backup_error: string | null;
+  next_backup_at: string | null;
+  keep: number;
+  current_members: number;
+  current_memberships: number;
+};
+
+export type UpdateBackupSettingsInput = {
+  enabled?: boolean;
+  time?: string;
+  folder?: string | null;
+};
+
+export type RestoreOutcome = {
+  restored: BackupSummary;
+  safety_copy: string | null;
+};
+
+export function getBackupStatus(sessionToken: string): Promise<BackupStatus> {
+  return invoke<BackupStatus>("get_backup_status", { sessionToken });
+}
+
+export function updateBackupSettings(
+  sessionToken: string,
+  input: UpdateBackupSettingsInput,
+): Promise<BackupStatus> {
+  return invoke<BackupStatus>("update_backup_settings", {
+    sessionToken,
+    input,
+  });
+}
+
+export function listBackups(
+  sessionToken: string,
+  folder?: string | null,
+): Promise<BackupSummary[]> {
+  return invoke<BackupSummary[]>("list_backups", {
+    sessionToken,
+    folder: folder ?? null,
+  });
+}
+
+export function createBackup(sessionToken: string): Promise<BackupSummary> {
+  return invoke<BackupSummary>("create_backup", { sessionToken });
+}
+
+export function deleteBackup(
+  sessionToken: string,
+  backupPath: string,
+): Promise<void> {
+  return invoke<void>("delete_backup", { sessionToken, backupPath });
+}
+
+export function restoreBackup(
+  sessionToken: string,
+  backupPath: string,
+): Promise<RestoreOutcome> {
+  return invoke<RestoreOutcome>("restore_backup", {
+    sessionToken,
+    backupPath,
+  });
+}
+
+export function restartApp(): Promise<void> {
+  return invoke<void>("restart_app", {});
+}

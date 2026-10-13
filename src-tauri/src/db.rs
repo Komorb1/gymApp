@@ -10,12 +10,13 @@ embed_migrations!("migrations");
 
 pub struct Db(pub Mutex<Connection>);
 
-pub fn init(app: &AppHandle) -> AppResult<Db> {
-    let app_data_dir = app.path().app_data_dir()?;
-    std::fs::create_dir_all(&app_data_dir)?;
-    let db_path = app_data_dir.join("gymapp.db");
+pub const DATABASE_FILE: &str = "gymapp.db";
 
-    let mut conn = Connection::open(&db_path)?;
+pub fn open(path: &std::path::Path) -> AppResult<Connection> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut conn = Connection::open(path)?;
 
     conn.execute_batch(
         "PRAGMA foreign_keys = ON;
@@ -31,6 +32,16 @@ pub fn init(app: &AppHandle) -> AppResult<Db> {
     if !applied.is_empty() {
         eprintln!("[db] applied {} migration(s): {:?}", applied.len(), applied);
     }
+
+    Ok(conn)
+}
+
+pub fn init(app: &AppHandle) -> AppResult<Db> {
+    let app_data_dir = app.path().app_data_dir()?;
+    std::fs::create_dir_all(&app_data_dir)?;
+    let db_path = app_data_dir.join(DATABASE_FILE);
+
+    let conn = open(&db_path)?;
 
     auto_unfreeze(&conn)?;
 

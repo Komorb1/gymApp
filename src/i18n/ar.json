@@ -10,6 +10,7 @@
     "plans": "الباقات",
     "reports": "التقارير",
     "settings": "الإعدادات",
+    "backup": "النسخ الاحتياطي",
     "activity": "سجل النشاط"
   },
   "common": {
@@ -38,6 +39,53 @@
     "saved": "تم الحفظ",
     "yes": "نعم",
     "no": "لا"
+  },
+  "backup": {
+    "title": "النسخ الاحتياطي",
+    "settingsDescription": "احتفظ بنسخة من بيانات النادي واسترجعها عند الحاجة.",
+    "backupNow": "نسخ احتياطي الآن",
+    "restoreFromFolder": "استرجاع من مجلد",
+    "created": "تم إنشاء نسخة احتياطية: {{name}}",
+    "automaticTitle": "النسخ التلقائي",
+    "automaticEnabled": "نسخ احتياطي تلقائي مرة في اليوم",
+    "time": "يوميا عند",
+    "folder": "مكان حفظ النسخ",
+    "chooseFolder": "اختيار مجلد",
+    "useDefaultFolder": "استخدام المجلد الافتراضي",
+    "lastBackup": "آخر نسخة احتياطية",
+    "nextBackup": "النسخة التلقائية القادمة",
+    "never": "أبدا",
+    "keepNote": "يتم الاحتفاظ بأحدث {{count}} نسخة تلقائية، والنسخ التي تنشئها بنفسك لا يتم حذفها تلقائيا.",
+    "lastError": "فشل آخر نسخ تلقائي",
+    "listTitle": "نقاط النسخ الاحتياطي",
+    "totalSize": "الحجم الإجمالي",
+    "emptyList": "لا توجد نسخ احتياطية بعد",
+    "name": "النسخة",
+    "taken": "تاريخ النسخ",
+    "contains": "{{members}} عضو، {{memberships}} عضوية",
+    "containsLabel": "المحتوى",
+    "size": "الحجم",
+    "kindLabel": "المصدر",
+    "restore": "استرجاع",
+    "restoreTitle": "استرجاع هذه النسخة؟",
+    "restoreWarning": "سيتم استبدال بياناتك الحالية بهذه النسخة.",
+    "currentData": "بياناتك الحالية",
+    "backupData": "تحتوي هذه النسخة على",
+    "safetyNote": "سيتم حفظ نسخة أمان من بياناتك الحالية أولا.",
+    "restartNote": "سيتم إغلاق التطبيق وإعادة فتحه على البيانات المسترجعة.",
+    "deleteTitle": "حذف هذه النسخة؟",
+    "deleteWarning": "سيتم حذف مجلد النسخة من القرص. لا يمكن التراجع عن ذلك.",
+    "browseTitle": "اختر نسخة للاسترجاع",
+    "browseFolder": "تصفح مجلد النسخ",
+    "browseEmpty": "لم يتم العثور على نسخ احتياطية في هذا المجلد",
+    "restoringTitle": "يتم استرجاع بياناتك",
+    "restoringMessage": "سيتم إغلاق التطبيق وإعادة فتحه على البيانات المسترجعة.",
+    "safetySaved": "تم الاحتفاظ ببياناتك السابقة باسم {{name}}",
+    "kind": {
+      "scheduled": "تلقائية",
+      "manual": "يدوية",
+      "safety": "قبل الاسترجاع"
+    }
   },
   "activity": {
     "title": "سجل النشاط",
@@ -78,7 +126,10 @@
       "gym_name": "اسم النادي",
       "gym_address": "عنوان النادي",
       "gym_phone": "هاتف النادي",
-      "discount_approval_status": "اعتماد الخصم"
+      "discount_approval_status": "اعتماد الخصم",
+      "backup": "ملف النسخة",
+      "members": "الأعضاء",
+      "memberships": "العضويات"
     },
     "actions": {
       "member.create": "إنشاء عضو",
@@ -102,14 +153,17 @@
       "user.register": "تسجيل موظف",
       "user.update": "تعديل مستخدم",
       "user.delete": "حذف مستخدم",
-      "settings.update": "تحديث الإعدادات"
+      "settings.update": "تحديث الإعدادات",
+      "backup.delete": "حذف نسخة احتياطية",
+      "backup.restore": "استرجاع نسخة احتياطية"
     },
     "targets": {
       "member": "عضو",
       "plan": "باقة",
       "subscription": "عضوية",
       "user": "مستخدم",
-      "settings": "إعدادات"
+      "settings": "إعدادات",
+      "backup": "نسخة احتياطية"
     }
   },
   "auth": {

@@ -15,6 +15,7 @@ pub fn run() {
             let db = db::init(app.handle())?;
             app.manage(db);
             app.manage(session::Sessions::new());
+            commands::backup::spawn_scheduler(app.handle().clone());
 
             #[cfg(debug_assertions)]
             {
@@ -64,6 +65,13 @@ pub fn run() {
             commands::subscriptions::reject_subscription_discount,
             commands::subscriptions::get_dashboard_stats,
             commands::activity::list_activity_logs,
+            commands::backup::get_backup_status,
+            commands::backup::update_backup_settings,
+            commands::backup::list_backups,
+            commands::backup::create_backup,
+            commands::backup::delete_backup,
+            commands::backup::restore_backup,
+            commands::backup::restart_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

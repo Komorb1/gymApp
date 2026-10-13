@@ -15,6 +15,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
 import { useAuthStore } from "@/stores/auth";
+import { BackupPanel } from "@/features/backup/BackupPanel";
 import { UsersManagement } from "./UsersManagement";
 
 export function SettingsPage() {
@@ -187,6 +188,20 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             <UsersManagement />
+          </CardContent>
+        </Card>
+      )}
+
+      {isManagement && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-cairo">{t("backup.title")}</CardTitle>
+            <CardDescription className="font-cairo">
+              {t("backup.settingsDescription")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BackupPanel />
           </CardContent>
         </Card>
       )}

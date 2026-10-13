@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { LITE_HIDDEN_PAGES, isPageAvailable } from "./navigation";
+import {
+  LITE_HIDDEN_PAGES,
+  FULL_HIDDEN_PAGES,
+  isPageAvailable,
+} from "./navigation";
 import type { Page } from "@/stores/nav";
 
 describe("edition navigation", () => {
@@ -23,5 +27,11 @@ describe("edition navigation", () => {
       expect(isPageAvailable(page, true)).toBe(false);
       expect(isPageAvailable(page, false)).toBe(true);
     }
+  });
+
+  it("gives the lite edition its own backup page and keeps it off the complete navigation", () => {
+    expect(FULL_HIDDEN_PAGES).toEqual(["backup"]);
+    expect(isPageAvailable("backup", true)).toBe(true);
+    expect(isPageAvailable("backup", false)).toBe(false);
   });
 });
