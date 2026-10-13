@@ -32,6 +32,9 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
 
   const activePlans = plans.filter((p) => p.is_active);
   const [planId, setPlanId] = useState<number | null>(null);
+  const [createdAt, setCreatedAt] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [startDate, setStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -75,6 +78,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         member_id: member.id,
         plan_id: planId,
         start_date: startDate || null,
+        created_at: createdAt || null,
         discount_percent: Number(discountPercent),
         paid_amount_cents: paidAmountCents,
         notes: notes || null,
@@ -132,6 +136,17 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.createdDate")}
+            </Label>
+            <DateInput
+              value={createdAt}
+              onChange={(e) => setCreatedAt(e.target.value)}
+              className="font-cairo"
+            />
           </div>
 
           <div className="space-y-2">

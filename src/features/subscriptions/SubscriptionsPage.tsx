@@ -38,7 +38,11 @@ import { EditMembershipDialog } from "./EditMembershipDialog";
 import { useAuthStore } from "@/stores/auth";
 import {
   canReviewDiscount,
+  derivedMembershipStatus,
+  filterMemberships,
   groupOperationalSubscriptions,
+  paymentStatusKey,
+  renewConfirmationKey,
   showDiscount,
 } from "@/lib/subscriptionView";
 
@@ -64,7 +68,27 @@ export function SubscriptionsPage() {
   const debounced = useDebouncedValue(pickerSearch, 300);
   const { data: pickerMembers = [] } = useMembers(debounced);
 
-  const buckets = useMemo(() => groupOperationalSubscriptions(subs), [subs]);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const searching = debouncedSearch.trim().length > 0;
+
+  const buckets = useMemo(() => {
+    const groups = groupOperationalSubscriptions(subs);
+    const searchGroup = (rows: Subscription[]) =>
+      filterMemberships(rows, debouncedSearch, {
+        labels: (subscription) => [
+          t(`subscriptions.${derivedMembershipStatus(subscription)}`),
+          t(`subscriptions.${paymentStatusKey(subscription)}`),
+        ],
+      });
+    return {
+      active: searchGroup(groups.active),
+      expiring: searchGroup(groups.expiring),
+      expired: searchGroup(groups.expired),
+      frozen: searchGroup(groups.frozen),
+      partial: searchGroup(groups.partial),
+    };
+  }, [subs, debouncedSearch, t]);
 
   const handleRenew = (s: Subscription) => {
     renewMut.mutate({
@@ -122,17 +146,20 @@ export function SubscriptionsPage() {
             </div>
           </div>
         </td>
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+          #{s.id}
+        </td>
         <td className="p-3 font-cairo text-muted-foreground">
           {s.plan_snapshot.name}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+          {formatDate(s.created_at)}
         </td>
         <td className="p-3 font-cairo text-muted-foreground">
           {formatDate(s.start_date)}
         </td>
         <td className="p-3 font-cairo text-muted-foreground">
           {formatDate(s.end_date)}
-        </td>
-        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-          {formatDate(s.created_at)}
         </td>
         <td className="p-3">
           <div className="flex items-center gap-1">
@@ -271,23 +298,26 @@ export function SubscriptionsPage() {
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[1420px] text-sm">
+      <table className="w-full min-w-[1500px] text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.member")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("subscriptions.id")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.plan")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+              {t("common.created")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.startDate")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.endDate")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("common.created")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
               {t("subscriptions.status")}
@@ -313,10 +343,12 @@ export function SubscriptionsPage() {
           {rows.length === 0 ? (
             <tr>
               <td
-                colSpan={11}
+                colSpan={12}
                 className="p-6 text-center text-muted-foreground font-cairo"
               >
-                {t("subscriptions.noActiveSubs")}
+                {searching
+                  ? t("subscriptions.noSearchResults")
+                  : t("subscriptions.noActiveSubs")}
               </td>
             </tr>
           ) : (
@@ -329,16 +361,25 @@ export function SubscriptionsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
         <h2 className="text-lg font-semibold font-cairo">
           {t("subscriptions.title")}
         </h2>
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("subscriptions.searchPlaceholder")}
+            className="ps-10 font-cairo"
+          />
+        </div>
         <Button
           onClick={() => {
             setPickerSearch("");
             setShowPicker(true);
           }}
-          className="font-cairo"
+          className="ms-auto font-cairo"
         >
           <Plus className="w-4 h-4" />
           {t("subscriptions.subscribe")}
@@ -462,7 +503,11 @@ export function SubscriptionsPage() {
               {t("subscriptions.renew")}
             </DialogTitle>
             <DialogDescription className="font-cairo">
-              {t("subscriptions.renewConfirm")}
+              {t(
+                renewTarget
+                  ? renewConfirmationKey(renewTarget)
+                  : "subscriptions.renewConfirm",
+              )}
             </DialogDescription>
           </DialogHeader>
           {renewTarget && (

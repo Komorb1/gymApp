@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 
+import { formatDate } from "./format";
 import type { MemberReport, Plan, Subscription } from "./ipc";
 import {
   EXPIRED_WINDOW_DAYS,
   canReviewDiscount,
+  derivedMembershipStatus,
   discountedPriceCents,
   filterMemberReports,
+  filterMemberships,
   filterReportSubscriptions,
   groupOperationalSubscriptions,
   membershipPlanPriceCents,
+  renewConfirmationKey,
   showDiscount,
 } from "./subscriptionView";
 
@@ -240,5 +244,140 @@ describe("membership presentation", () => {
         new Date("2026-09-13T12:00:00Z"),
       ),
     ).toEqual([expiredPaid]);
+  });
+});
+
+describe("membership lookup", () => {
+  const now = new Date("2026-09-13T12:00:00Z");
+  const first = subscription(12, 1, "active", "2026-10-30");
+  const second = subscription(34, 2, "active", "2026-12-01");
+  const rows = [first, second];
+
+  it("derives the displayed status from the end date", () => {
+    expect(derivedMembershipStatus(first, now)).toBe("active");
+    expect(
+      derivedMembershipStatus(subscription(5, 3, "active", "2026-09-01"), now),
+    ).toBe("expired");
+    expect(
+      derivedMembershipStatus(
+        subscription(6, 4, "cancelled", "2026-09-01"),
+        now,
+      ),
+    ).toBe("cancelled");
+  });
+
+  it("finds a membership by its unique id, with or without the prefix", () => {
+    expect(filterMemberships(rows, "#12", { now })).toEqual([first]);
+    expect(filterMemberships(rows, "34", { now })).toEqual([second]);
+    expect(filterMemberships(rows, "id 34", { now })).toEqual([second]);
+    expect(filterMemberships(rows, "  ", { now })).toEqual(rows);
+  });
+
+  it("keeps a numeric query on the membership id alone", () => {
+    const idFive = subscription(5, 3, "active", "2026-11-01");
+    const planFive = {
+      ...subscription(8, 4, "active", "2026-11-01"),
+      plan_snapshot: { ...second.plan_snapshot, name: "plan 5" },
+      member_snapshot: {
+        ...second.member_snapshot,
+        phone: "0500000005",
+        id_number: "5",
+      },
+    };
+
+    expect(filterMemberships([idFive, planFive], "5", { now })).toEqual([
+      idFive,
+    ]);
+    expect(filterMemberships([idFive, planFive], "#5", { now })).toEqual([
+      idFive,
+    ]);
+  });
+
+  it("matches every plan term inside the plan name only", () => {
+    const planTwo = {
+      ...second,
+      plan_snapshot: { ...second.plan_snapshot, name: "plan 2" },
+    };
+    const planOne = {
+      ...first,
+      plan_snapshot: { ...first.plan_snapshot, name: "plan 1" },
+      member_snapshot: { ...first.member_snapshot, phone: "0500000002" },
+    };
+    const candidates = [planTwo, planOne];
+
+    expect(filterMemberships(candidates, "plan 2", { now })).toEqual([planTwo]);
+    expect(filterMemberships(candidates, "PLAN 2", { now })).toEqual([planTwo]);
+    expect(filterMemberships(candidates, "plan", { now })).toEqual(candidates);
+    expect(filterMemberships(candidates, "plan 3", { now })).toEqual([]);
+  });
+
+  it("finds a membership by start, end, or created date", () => {
+    expect(filterMemberships(rows, "2026-10-30", { now })).toEqual([first]);
+    expect(
+      filterMemberships(rows, formatDate(second.end_date), { now }),
+    ).toEqual([second]);
+    expect(
+      filterMemberships(rows, formatDate(second.created_at), { now }),
+    ).toEqual([first, second]);
+    expect(filterMemberships(rows, "2026", { now })).toEqual(rows);
+  });
+
+  it("matches a stored status or payment value without matching part of it", () => {
+    const unpaid = { ...first, is_paid: false, paid_amount_cents: 0 };
+    const partlyPaid = { ...first, is_paid: false, paid_amount_cents: 2000 };
+    const candidates = [second, unpaid, partlyPaid];
+
+    expect(filterMemberships(candidates, "paid", { now })).toEqual([second]);
+    expect(filterMemberships(candidates, "unpaid", { now })).toEqual([unpaid]);
+    expect(filterMemberships(candidates, "partial", { now })).toEqual([
+      partlyPaid,
+    ]);
+  });
+
+  it("matches a localized status label in the active language", () => {
+    const expired = subscription(7, 3, "active", "2026-09-01");
+    const labels = (membership: Subscription) => [
+      derivedMembershipStatus(membership, now) === "expired" ? "منتهي" : "نشط",
+    ];
+
+    expect(
+      filterMemberships([first, expired], "منتهي", { now, labels }),
+    ).toEqual([expired]);
+    expect(filterMemberships([first, expired], "نشط", { now, labels })).toEqual(
+      [first],
+    );
+    expect(filterMemberships([first, expired], "منتهي", { now })).toEqual([]);
+  });
+
+  it("matches a diacritic-bearing label with plain typed letters", () => {
+    const frozen = { ...first, status: "frozen" as const };
+    const labels = () => ["مجمّد", "مدفوع جزئيًا"];
+
+    expect(filterMemberships([frozen], "مجمد", { now, labels })).toEqual([
+      frozen,
+    ]);
+    expect(filterMemberships([frozen], "مدفوع جزئيا", { now, labels })).toEqual(
+      [frozen],
+    );
+    expect(filterMemberships([frozen], "مجمّ", { now, labels })).toEqual([]);
+  });
+
+  it("accepts an id query with a spoken prefix in either language", () => {
+    expect(filterMemberships(rows, "معرف 12", { now })).toEqual([first]);
+    expect(filterMemberships(rows, "معرف العضوية 12", { now })).toEqual([
+      first,
+    ]);
+    expect(filterMemberships(rows, "plan 12", { now })).toEqual([]);
+  });
+});
+
+describe("renewal confirmation", () => {
+  it("warns that an expired membership starts over instead of staying active", () => {
+    expect(
+      renewConfirmationKey(subscription(1, 1, "active", "2026-12-01")),
+    ).toBe("subscriptions.renewConfirm");
+    expect(
+      renewConfirmationKey(subscription(2, 2, "active", "2020-01-01")),
+    ).toBe("subscriptions.renewConfirmExpired");
   });
 });

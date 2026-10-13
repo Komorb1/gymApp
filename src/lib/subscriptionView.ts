@@ -1,5 +1,5 @@
 import type { MemberReport, Plan, Subscription } from "./ipc";
-import { fullName } from "./format";
+import { formatDate, fullName, isExpired } from "./format";
 
 export type OperationalSubscriptionGroups = {
   active: Subscription[];
@@ -106,6 +106,134 @@ export function canReviewDiscount(subscription: Subscription): boolean {
     subscription.status === "pending" &&
     subscription.discount_approval_status === "pending"
   );
+}
+
+export type DerivedMembershipStatus =
+  "active" | "expired" | "frozen" | "cancelled" | "pending" | "rejected";
+
+export function derivedMembershipStatus(
+  subscription: Subscription,
+  now = new Date(),
+): DerivedMembershipStatus {
+  if (
+    subscription.status === "active" &&
+    subscription.end_date < dateOnly(now)
+  ) {
+    return "expired";
+  }
+  return subscription.status;
+}
+
+export function paymentStatusKey(
+  subscription: Subscription,
+): "paid" | "partial" | "unpaid" {
+  if (subscription.is_paid) return "paid";
+  return subscription.paid_amount_cents > 0 ? "partial" : "unpaid";
+}
+
+export type MembershipSearchOptions = {
+  now?: Date;
+  labels?: (subscription: Subscription) => string[];
+};
+
+const SEARCH_SEPARATORS = /[^\p{L}\p{N}]+/gu;
+const NON_DIGITS = /[^\p{N}]+/gu;
+const DIGITS_ONLY = /^\p{N}+$/u;
+const ARABIC_MARKS = /[\u064b-\u065f\u0670\u06d6-\u06ed\u0640]/g;
+const MIN_DATE_QUERY_DIGITS = 4;
+const ID_PREFIXES = new Set(["id", "معرف", "المعرف", "عضوية", "العضوية"]);
+
+function normalizedText(value: string): string {
+  return value
+    .replace(ARABIC_MARKS, "")
+    .toLocaleLowerCase()
+    .replace(SEARCH_SEPARATORS, " ")
+    .trim();
+}
+
+export function filterMemberships(
+  subscriptions: Subscription[],
+  search: string,
+  options: MembershipSearchOptions = {},
+): Subscription[] {
+  const query = normalizedText(search);
+  if (query.length === 0) return subscriptions;
+
+  const tokens = query.split(" ").filter(Boolean);
+  const numeric = numericQuery(tokens);
+  const dateQuery = digitQuery(search);
+
+  return subscriptions.filter((subscription) => {
+    if (numeric !== null) {
+      if (String(subscription.id) === numeric) return true;
+      return (
+        numeric.length >= MIN_DATE_QUERY_DIGITS &&
+        membershipDateDigits(subscription).some((value) =>
+          value.includes(numeric),
+        )
+      );
+    }
+
+    if (dateQuery !== null) {
+      return membershipDateDigits(subscription).some((value) =>
+        value.includes(dateQuery),
+      );
+    }
+
+    const { plan, exact } = membershipSearchFields(subscription, options);
+    if (tokens.every((token) => plan.includes(token))) return true;
+    return exact.includes(query);
+  });
+}
+
+function numericQuery(tokens: string[]): string | null {
+  const last = tokens[tokens.length - 1];
+  if (!last || !DIGITS_ONLY.test(last)) return null;
+  if (tokens.length === 1) return last;
+  return tokens.slice(0, -1).every((token) => ID_PREFIXES.has(token))
+    ? last
+    : null;
+}
+
+function membershipSearchFields(
+  subscription: Subscription,
+  { now = new Date(), labels }: MembershipSearchOptions,
+): { plan: string; exact: string[] } {
+  return {
+    plan: normalizedText(subscription.plan_snapshot.name),
+    exact: [
+      normalizedText(derivedMembershipStatus(subscription, now)),
+      normalizedText(paymentStatusKey(subscription)),
+      ...(labels?.(subscription) ?? []).map(normalizedText),
+    ].filter(Boolean),
+  };
+}
+
+function membershipDateDigits(subscription: Subscription): string[] {
+  return [
+    subscription.start_date,
+    subscription.end_date,
+    subscription.created_at.slice(0, 10),
+    formatDate(subscription.start_date),
+    formatDate(subscription.end_date),
+    formatDate(subscription.created_at),
+  ].map((value) => value.replace(NON_DIGITS, ""));
+}
+
+function digitQuery(search: string): string | null {
+  const trimmed = search.trim();
+  const digits = trimmed.replace(NON_DIGITS, "");
+  if (digits.length < MIN_DATE_QUERY_DIGITS) return null;
+  if (trimmed.replace(/[^\p{L}]+/gu, "").length > 0) return null;
+  return digits;
+}
+
+export function renewConfirmationKey(
+  subscription: Subscription,
+): "subscriptions.renewConfirm" | "subscriptions.renewConfirmExpired" {
+  return isExpired(subscription.end_date)
+    ? "subscriptions.renewConfirmExpired"
+    : "subscriptions.renewConfirm";
 }
 
 export type ReportMemberFilter = "all" | "active" | "deleted";

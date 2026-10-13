@@ -139,6 +139,28 @@ fn clean_notes(notes: Option<String>) -> Option<String> {
     })
 }
 
+fn membership_created_at(
+    created_at: Option<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> AppResult<String> {
+    let timestamp = now.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let Some(value) = created_at else {
+        return Ok(timestamp);
+    };
+    if value.trim().is_empty() {
+        return Ok(timestamp);
+    }
+    let date = parse_date(
+        value.get(..10).unwrap_or(value.as_str()),
+        "membership created date",
+    )?;
+    Ok(format!(
+        "{}T{}",
+        date.format("%Y-%m-%d"),
+        now.format("%H:%M:%SZ")
+    ))
+}
+
 fn discounted_price_cents(price_cents: i64, discount_percent: i64) -> AppResult<i64> {
     if !(0..=100).contains(&discount_percent) {
         return Err(AppError::Validation(
@@ -300,8 +322,9 @@ mod tests {
     use super::{
         apply_discount_review, can_review_discount_request, discounted_price_cents,
         edited_membership_status, ensure_membership_can_freeze, ensure_membership_dates_are_valid,
-        ensure_no_current_membership, expired_overdue_count, membership_creation_status,
-        renew_membership, reviewed_membership_status, validate_paid_amount,
+        ensure_no_current_membership, expired_overdue_count, membership_created_at,
+        membership_creation_status, renew_membership, reviewed_membership_status,
+        validate_paid_amount,
     };
     use crate::db::migrations;
     use crate::models::{MemberSnapshot, PlanSnapshot, RenewSubscriptionInput, Subscription};
@@ -376,6 +399,39 @@ mod tests {
         assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-02-01").is_ok());
         assert!(ensure_membership_dates_are_valid("2026-01-01", "2026-01-01").is_ok());
         assert!(ensure_membership_dates_are_valid("2026-02-01", "2026-01-01").is_err());
+    }
+
+    #[test]
+    fn a_requested_creation_date_keeps_the_current_time_of_day() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-10-13T09:30:15Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        assert_eq!(
+            membership_created_at(Some("2020-05-04".into()), now).unwrap(),
+            "2020-05-04T09:30:15Z"
+        );
+        assert_eq!(
+            membership_created_at(Some("2020-05-04T12:00:00Z".into()), now).unwrap(),
+            "2020-05-04T09:30:15Z"
+        );
+        assert_eq!(
+            membership_created_at(None, now).unwrap(),
+            "2026-10-13T09:30:15Z"
+        );
+        assert_eq!(
+            membership_created_at(Some("   ".into()), now).unwrap(),
+            "2026-10-13T09:30:15Z"
+        );
+    }
+
+    #[test]
+    fn an_invalid_creation_date_is_rejected() {
+        let now = Utc::now();
+
+        assert!(membership_created_at(Some("13/10/2026".into()), now).is_err());
+        assert!(membership_created_at(Some("2026-13-45".into()), now).is_err());
+        assert!(membership_created_at(Some("yesterday".into()), now).is_err());
     }
 
     #[test]
@@ -816,13 +872,15 @@ pub async fn create_subscription(
         let plan = plan_snapshot(&transaction, input.plan_id, true)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let now = chrono::Utc::now();
+        let today = now.format("%Y-%m-%d").to_string();
+        let created_at = membership_created_at(input.created_at, now)?;
         ensure_no_current_membership(&transaction, input.member_id, None, None, &today)?;
         let status = membership_creation_status(&access_level, input.discount_percent);
         let discount_requester = (status == "pending").then_some(actor_id);
         let start_date = match input.start_date {
             Some(value) => parse_date(&value, "start date")?,
-            None => chrono::Utc::now().date_naive(),
+            None => now.date_naive(),
         };
         let end_date = compute_end_date(start_date, plan.duration_days);
         let member_json = serde_json::to_string(&member)?;
@@ -832,8 +890,8 @@ pub async fn create_subscription(
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
                 start_date, end_date, status, final_price_cents, paid_amount_cents,
                 discount_percent, is_paid,
-                discount_requested_by_user_id, discount_approval_status, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                discount_requested_by_user_id, discount_approval_status, notes, created_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -849,6 +907,7 @@ pub async fn create_subscription(
                 discount_requester,
                 discount_requester.map(|_| "pending"),
                 clean_notes(input.notes),
+                created_at,
             ],
         )?;
         let new_id = transaction.last_insert_rowid();

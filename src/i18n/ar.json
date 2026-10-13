@@ -22,7 +22,7 @@
     "close": "إغلاق",
     "confirm": "تأكيد",
     "back": "رجوع",
-    "loading": "جارٍ التحميل...",
+    "loading": "يتم التحميل...",
     "created": "تاريخ الإنشاء",
     "actions": "إجراءات",
     "user": "المستخدم",
@@ -43,7 +43,7 @@
     "title": "سجل النشاط",
     "noResults": "لا يوجد نشاط",
     "changeDetails": "تفاصيل التغيير",
-    "field": "الحقل المتغيّر",
+    "field": "الحقل المتغير",
     "before": "قبل",
     "after": "بعد",
     "noChanges": "لا توجد تغييرات مهمة في البيانات",
@@ -62,7 +62,7 @@
       "status": "الحالة",
       "start_date": "تاريخ البداية",
       "end_date": "تاريخ النهاية",
-      "frozen_until": "مجمّد حتى",
+      "frozen_until": "مجمد حتى",
       "duration_days": "المدة بالأيام",
       "price_cents": "سعر الباقة",
       "paid_amount_cents": "المبلغ المدفوع",
@@ -130,7 +130,7 @@
     "lockedOut": "محاولات كثيرة. حاول مرة أخرى بعد {{seconds}} ثانية."
   },
   "setup": {
-    "welcomeTo": "مرحبًا بك في {{name}}",
+    "welcomeTo": "مرحبا بك في {{name}}",
     "setupGym": "إعداد النادي",
     "gymName": "اسم النادي",
     "createUser": "إنشاء مستخدم مدير",
@@ -147,7 +147,7 @@
     "lastName": "اسم العائلة",
     "idNumber": "رقم الهوية",
     "phone": "رقم الهاتف (واتساب)",
-    "phoneIsWhatsapp": "سيُستخدم هذا الرقم للتواصل عبر واتساب.",
+    "phoneIsWhatsapp": "سيستخدم هذا الرقم للتواصل عبر واتساب.",
     "phoneDigitsOnly": "رقم الهاتف يجب أن يحتوي على أرقام فقط.",
     "phoneTaken": "رقم الواتساب هذا مسجل بالفعل لعضو آخر.",
     "whatsappNo": "رقم واتساب",
@@ -161,7 +161,7 @@
     "inactive": "غير نشط",
     "empty": "لا يوجد أعضاء بعد",
     "emptyCta": "أضف أول عضو",
-    "cannotDeleteSubscribed": "لا يمكن حذف عضو لديه سجل عضوية. سيبقى العضو محفوظًا في التقارير."
+    "cannotDeleteSubscribed": "لا يمكن حذف عضو لديه سجل عضوية. سيبقى العضو محفوظا في التقارير."
   },
   "plans": {
     "title": "الباقات",
@@ -169,8 +169,8 @@
     "name": "اسم الباقة",
     "duration": "المدة (أيام)",
     "price": "السعر",
-    "active": "مفعّل",
-    "inactive": "معطّل",
+    "active": "مفعل",
+    "inactive": "معطل",
     "empty": "لا توجد باقات بعد"
   },
   "subscriptions": {
@@ -187,13 +187,13 @@
     "active": "نشط",
     "expired": "منتهي",
     "expiring": "قريب الانتهاء",
-    "frozen": "مجمّد",
+    "frozen": "مجمد",
     "cancelled": "ملغي",
     "pending": "بانتظار الموافقة",
     "approved": "معتمد",
     "rejected": "مرفوض",
     "paid": "مدفوع",
-    "partial": "مدفوع جزئيًا",
+    "partial": "مدفوع جزئيا",
     "unpaid": "غير مدفوع",
     "payment": "الدفع",
     "paidAmount": "المبلغ المدفوع",
@@ -201,7 +201,7 @@
     "unpaidAmount": "المبلغ المتبقي",
     "confirmEditTitle": "تأكيد تعديل العضوية",
     "confirmEditWarning": "هذه العضوية منتهية أو ملغاة. هل تريد حفظ هذه التغييرات على أي حال؟",
-    "expiredWindow": "يتم عرض العضويات التي انتهت خلال آخر 30 يومًا فقط.",
+    "expiredWindow": "يتم عرض العضويات التي انتهت خلال آخر 30 يوما فقط.",
     "invalidPaidAmount": "يجب أن يكون المبلغ المدفوع بين صفر والسعر النهائي",
     "alreadyActive": "لدى هذا العضو عضوية نشطة بالفعل",
     "discount": "الخصم",
@@ -211,12 +211,17 @@
     "editMembership": "تعديل العضوية",
     "member": "العضو",
     "plan": "الباقة",
-    "frozenUntil": "مجمّد حتى",
+    "id": "معرف العضوية",
+    "createdDate": "تاريخ الإنشاء",
+    "searchPlaceholder": "ابحث بمعرف العضوية أو الباقة أو التاريخ أو الحالة...",
+    "noSearchResults": "لا توجد عضويات مطابقة للبحث",
+    "frozenUntil": "مجمد حتى",
     "freezePrompt": "تجميد حتى (تاريخ)",
     "subscribeMember": "عضوية جديدة",
     "noActiveSubs": "لا توجد عضويات نشطة",
     "cancelConfirm": "إلغاء هذه العضوية؟",
-    "renewConfirm": "تجديد هذه العضوية؟ ستُضاف عضوية جديدة وتبقى العضوية الحالية فعّالة حتى انتهائها.",
+    "renewConfirm": "تجديد هذه العضوية؟ ستضاف عضوية جديدة وتبقى العضوية الحالية فعالة حتى انتهائها.",
+    "renewConfirmExpired": "تجديد هذه العضوية؟ هذه العضوية منتهية، لذا ستبدأ العضوية الجديدة من اليوم.",
     "approveDiscount": "اعتماد الخصم",
     "rejectDiscount": "رفض الخصم",
     "discountPendingNotice": "ستبقى هذه العضوية غير نشطة حتى توافق الإدارة على الخصم.",
@@ -224,8 +229,8 @@
       "active": "نشط",
       "expiring": "ينتهي خلال ٧ أيام",
       "expired": "منتهي",
-      "frozen": "مجمّد",
-      "partial": "مدفوع جزئيًا"
+      "frozen": "مجمد",
+      "partial": "مدفوع جزئيا"
     }
   },
   "settings": {
@@ -278,9 +283,9 @@
     "activeMembers": "الأعضاء النشطون",
     "expiringThisWeek": "ينتهي هذا الأسبوع",
     "expiredOverdue": "منتهي / متأخر",
-    "expiredWindow": "آخر 30 يومًا",
+    "expiredWindow": "آخر 30 يوما",
     "totalMembers": "إجمالي الأعضاء",
-    "expiringSoon": "ينتهي قريبًا",
-    "recentMembers": "أُضيف مؤخرًا"
+    "expiringSoon": "ينتهي قريبا",
+    "recentMembers": "أضيف مؤخرا"
   }
 }

@@ -164,6 +164,7 @@ export type CreateSubscriptionInput = {
   member_id: number;
   plan_id: number;
   start_date?: string | null;
+  created_at?: string | null;
   discount_percent: number;
   paid_amount_cents: number;
   notes?: string | null;

@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
-import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Pencil, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -15,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useMember, useMemberFlags } from "@/hooks/useMembers";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   useMemberSubscriptions,
   useRenewSubscription,
@@ -35,7 +37,13 @@ import { FreezeDialog } from "@/features/subscriptions/FreezeDialog";
 import { MemberForm } from "./MemberForm";
 import type { Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
-import { showDiscount } from "@/lib/subscriptionView";
+import {
+  derivedMembershipStatus,
+  filterMemberships,
+  paymentStatusKey,
+  renewConfirmationKey,
+  showDiscount,
+} from "@/lib/subscriptionView";
 
 const flagLabels: Record<string, string> = {
   medical: "Medical",
@@ -68,12 +76,31 @@ export function MemberProfile() {
   const [showEdit, setShowEdit] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const [subPage, setSubPage] = useState(0);
+  const [subSearch, setSubSearch] = useState("");
+  const debouncedSubSearch = useDebouncedValue(subSearch, 300);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
   const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [editSubscription, setEditSubscription] = useState<Subscription | null>(
     null,
   );
+
+  const visibleSubs = useMemo(
+    () =>
+      filterMemberships(subs, debouncedSubSearch, {
+        labels: (subscription) => [
+          t(`subscriptions.${derivedMembershipStatus(subscription)}`),
+          t(`subscriptions.${paymentStatusKey(subscription)}`),
+        ],
+      }),
+    [subs, debouncedSubSearch, t],
+  );
+
+  const searchingSubs = debouncedSubSearch.trim().length > 0;
+
+  useEffect(() => {
+    setSubPage(0);
+  }, [debouncedSubSearch]);
 
   if (isLoading || !member) {
     return (
@@ -86,8 +113,8 @@ export function MemberProfile() {
   }
 
   const photoUrl = memberPhotoUrl(member.photo_path);
-  const totalPages = Math.ceil(subs.length / SUBS_PER_PAGE);
-  const pagedSubs = subs.slice(
+  const totalPages = Math.ceil(visibleSubs.length / SUBS_PER_PAGE);
+  const pagedSubs = visibleSubs.slice(
     subPage * SUBS_PER_PAGE,
     (subPage + 1) * SUBS_PER_PAGE,
   );
@@ -118,7 +145,7 @@ export function MemberProfile() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-7xl">
       <Button
         variant="ghost"
         size="sm"
@@ -279,41 +306,57 @@ export function MemberProfile() {
 
         <TabsContent value="subs">
           <div className="space-y-3">
-            <Button
-              onClick={() => setShowSubscribe(true)}
-              disabled={hasCurrentMembership}
-              className="font-cairo"
-            >
-              <Plus className="w-4 h-4" />
-              {t("subscriptions.subscribe")}
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={subSearch}
+                  onChange={(e) => setSubSearch(e.target.value)}
+                  placeholder={t("subscriptions.searchPlaceholder")}
+                  className="ps-10 font-cairo"
+                />
+              </div>
+              <Button
+                onClick={() => setShowSubscribe(true)}
+                disabled={hasCurrentMembership}
+                className="font-cairo"
+              >
+                <Plus className="w-4 h-4" />
+                {t("subscriptions.subscribe")}
+              </Button>
+            </div>
             {hasCurrentMembership && (
               <p className="text-sm text-muted-foreground font-cairo">
                 {t("subscriptions.alreadyActive")}
               </p>
             )}
 
-            {subs.length === 0 ? (
+            {visibleSubs.length === 0 ? (
               <p className="text-sm text-muted-foreground font-cairo py-6 text-center">
-                {t("subscriptions.noActiveSubs")}
+                {searchingSubs
+                  ? t("subscriptions.noSearchResults")
+                  : t("subscriptions.noActiveSubs")}
               </p>
             ) : (
               <>
                 <div className="rounded-lg border border-border overflow-x-auto">
-                  <table className="w-full min-w-[920px] text-sm">
+                  <table className="w-full min-w-[1000px] text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                          {t("subscriptions.id")}
+                        </th>
+                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.plan")}
+                        </th>
+                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                          {t("common.created")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.startDate")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.endDate")}
-                        </th>
-                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-                          {t("common.created")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
                           {t("subscriptions.payment")}
@@ -333,17 +376,20 @@ export function MemberProfile() {
                             key={s.id}
                             className="border-t border-border hover:bg-muted/20 transition-colors"
                           >
+                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+                              #{s.id}
+                            </td>
                             <td className="p-3 font-cairo">
                               {s.plan_snapshot.name}
+                            </td>
+                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+                              {formatDate(s.created_at)}
                             </td>
                             <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               {formatDate(s.start_date)}
                             </td>
                             <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               {formatDate(s.end_date)}
-                            </td>
-                            <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-                              {formatDate(s.created_at)}
                             </td>
                             <td className="p-3">
                               <div className="flex items-center gap-1 flex-wrap">
@@ -565,7 +611,11 @@ export function MemberProfile() {
               {t("subscriptions.renew")}
             </DialogTitle>
             <DialogDescription className="font-cairo">
-              {t("subscriptions.renewConfirm")}
+              {t(
+                renewTarget
+                  ? renewConfirmationKey(renewTarget)
+                  : "subscriptions.renewConfirm",
+              )}
             </DialogDescription>
           </DialogHeader>
           {renewTarget && (

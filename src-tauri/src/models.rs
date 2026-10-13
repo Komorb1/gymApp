@@ -215,6 +215,8 @@ pub struct CreateSubscriptionInput {
     pub member_id: i64,
     pub plan_id: i64,
     pub start_date: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
     pub discount_percent: i64,
     pub paid_amount_cents: i64,
     pub notes: Option<String>,
@@ -256,7 +258,7 @@ pub struct DashboardStats {
 
 #[cfg(test)]
 mod tests {
-    use super::UpdateMemberInput;
+    use super::{CreateSubscriptionInput, UpdateMemberInput};
 
     #[test]
     fn update_member_distinguishes_missing_and_null_fields() {
@@ -265,5 +267,20 @@ mod tests {
 
         assert_eq!(missing.email, None);
         assert_eq!(cleared.email, Some(None));
+    }
+
+    #[test]
+    fn create_subscription_treats_a_missing_creation_date_as_unset() {
+        let missing: CreateSubscriptionInput = serde_json::from_str(
+            r#"{"member_id":1,"plan_id":1,"discount_percent":0,"paid_amount_cents":0}"#,
+        )
+        .unwrap();
+        let given: CreateSubscriptionInput = serde_json::from_str(
+            r#"{"member_id":1,"plan_id":1,"start_date":"2026-01-01","created_at":"2020-05-04","discount_percent":0,"paid_amount_cents":0}"#,
+        )
+        .unwrap();
+
+        assert_eq!(missing.created_at, None);
+        assert_eq!(given.created_at.as_deref(), Some("2020-05-04"));
     }
 }
