@@ -101,6 +101,15 @@ jobs:
             - **SK GYM Lite**: dashboard, members, memberships and plans only. No login, no accounts, no settings, reports or activity pages. It keeps its own data folder, so both editions can be installed and used side by side.
 
             ### Changes in ${{ github.ref_name }}
+            - Every table now reads in the order the desk works in: the members list shows created, member id, name, phone and email, with the actions at the end
+            - Both membership tables share one column order: created, membership id, member details, plan, start date, end date, plan price, paid amount, un-paid amount, status, membership notes and actions
+            - A membership's plan price, paid amount and un-paid amount are separate columns now instead of one combined payment cell, so the balance is readable at a glance
+            - Rows that would carry three or more actions show a single "more actions" button instead of a row of stacked buttons
+            - Table text no longer wraps into crowded cells: headers, dates, ids and amounts each stay on one line, and amounts line up on their digits
+            - Long membership notes are clipped to their column and shown in full when you hover them
+            - Tables that were cutting off wide content scroll inside their own box, so the page itself never moves sideways
+            - The memberships page search box sits directly beside the New Membership button, matching the members page, and the page no longer repeats its own title
+            - "Balance Amount" is now labelled "Un-paid Amount" in both membership tables and in the new membership and edit membership windows
             - Memberships can now be backed up and restored: a manual button, plus an automatic backup once a day at a time you choose
             - You pick where the backups are kept, so a USB drive or a OneDrive/Drive folder gives you an off-machine copy; a restore can also be taken from any folder you browse to
             - Each backup keeps the database, the member photos and an information file, and the page lists every backup with its date, size and contents
@@ -108,12 +117,9 @@ jobs:
             - Automatic backups keep the newest 14 and clean up after themselves; backups taken by hand are never deleted automatically
             - The complete edition has Backup in Settings, the Lite edition has its own Backup page in the sidebar
             - The backup list shows ten entries per page and scrolls inside its own box, so a long list never pushes the page around
-            - Membership tables order their columns as member, id, plan, created, and every membership shows its unique id
-            - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status
-            - Search narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
+            - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status, and it narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
             - The new membership form takes a created date, placed between the plan and the start date
             - Renewing an already expired membership now says the new membership starts today
-            - The member profile is wide enough for its memberships table, so it no longer scrolls sideways
             - Arabic text no longer carries diacritics the desk keyboard cannot type, so labels like "مجمد" can be searched and matched
           releaseDraft: false
           prerelease: true
