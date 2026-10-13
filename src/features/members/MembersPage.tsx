@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { RowActions } from "@/components/table/RowActions";
 import { useMembers, useDeleteMember } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useNavStore } from "@/stores/nav";
@@ -40,18 +41,6 @@ export function MembersPage() {
   useEffect(() => {
     searchRef.current?.focus();
   }, []);
-
-  const openEdit = (e: React.MouseEvent, m: Member) => {
-    e.stopPropagation();
-    setEditMember(m);
-    setShowForm(true);
-  };
-
-  const openDelete = (e: React.MouseEvent, m: Member) => {
-    e.stopPropagation();
-    setDeleteError("");
-    setDeleteTarget(m);
-  };
 
   const confirmDelete = () => {
     if (deleteTarget) {
@@ -111,24 +100,27 @@ export function MembersPage() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <table className="w-full min-w-[940px] text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-                  {t("members.firstName")} / {t("members.lastName")}
-                </th>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-                  {t("members.phone")}
-                </th>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-                  {t("members.email")}
-                </th>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                   {t("common.created")}
                 </th>
-                <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
-                  {t("common.edit")}
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                  {t("members.memberId")}
+                </th>
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                  {t("common.name")}
+                </th>
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                  {t("members.phone")}
+                </th>
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                  {t("members.email")}
+                </th>
+                <th className="text-end font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                  {t("common.actions")}
                 </th>
               </tr>
             </thead>
@@ -139,6 +131,12 @@ export function MembersPage() {
                   onClick={() => navigate("member-profile", m.id)}
                   className="border-t border-border hover:bg-muted/30 cursor-pointer transition-colors"
                 >
+                  <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+                    {formatDate(m.created_at)}
+                  </td>
+                  <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+                    #{m.id}
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       {memberPhotoUrl(m.photo_path) ? (
@@ -153,41 +151,47 @@ export function MembersPage() {
                           {m.last_name[0]?.toUpperCase()}
                         </div>
                       )}
-                      <span className="font-cairo font-medium">
+                      <span className="font-cairo font-medium whitespace-nowrap">
                         {fullName(m)}
                       </span>
                     </div>
                   </td>
-                  <td className="p-3 font-cairo text-muted-foreground">
+                  <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                     {m.phone ?? "—"}
                   </td>
-                  <td className="p-3 font-cairo text-muted-foreground">
+                  <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                     {m.email ?? "—"}
                   </td>
-                  <td className="p-3 font-cairo text-muted-foreground">
-                    {formatDate(m.created_at)}
-                  </td>
                   <td className="p-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => openEdit(e, m)}
-                        aria-label={t("common.edit")}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      {isManagement && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => openDelete(e, m)}
-                          aria-label={t("common.delete")}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
+                    <RowActions
+                      actions={[
+                        {
+                          key: "edit",
+                          label: t("common.edit"),
+                          icon: Pencil,
+                          variant: "ghost" as const,
+                          onSelect: () => {
+                            setEditMember(m);
+                            setShowForm(true);
+                          },
+                        },
+                        ...(isManagement
+                          ? [
+                              {
+                                key: "delete",
+                                label: t("common.delete"),
+                                icon: Trash2,
+                                variant: "ghost" as const,
+                                destructive: true,
+                                onSelect: () => {
+                                  setDeleteError("");
+                                  setDeleteTarget(m);
+                                },
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}

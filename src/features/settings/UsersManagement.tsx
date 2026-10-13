@@ -188,20 +188,20 @@ export function UsersManagement() {
           {t("common.loading")}
         </p>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/50">
               <tr className="text-start">
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                   {t("auth.username")}
                 </th>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                   {t("settings.accessLevel")}
                 </th>
-                <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                   {t("members.status")}
                 </th>
-                <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
+                <th className="text-end font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                   {t("common.edit")}
                 </th>
               </tr>
@@ -212,7 +212,7 @@ export function UsersManagement() {
                   key={u.id}
                   className={`border-t border-border ${u.id === actorId ? "bg-primary/5" : ""}`}
                 >
-                  <td className="p-3 font-cairo font-medium">
+                  <td className="p-3 font-cairo font-medium whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {u.username}
                       {u.id === actorId && (

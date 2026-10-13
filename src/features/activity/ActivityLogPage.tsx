@@ -197,23 +197,23 @@ export function ActivityLogPage() {
           </div>
         ) : (
           <>
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                       {t("common.date")}
                     </th>
-                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                       {t("common.user")}
                     </th>
-                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                       {t("common.action")}
                     </th>
-                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+                    <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                       {t("common.target")}
                     </th>
-                    <th className="text-end font-medium text-muted-foreground p-3 font-cairo">
+                    <th className="text-end font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                       {t("activity.changeDetails")}
                     </th>
                   </tr>
@@ -227,7 +227,7 @@ export function ActivityLogPage() {
                       <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                         {formatDate(log.created_at)}
                       </td>
-                      <td className="p-3 font-cairo font-medium">
+                      <td className="p-3 font-cairo font-medium whitespace-nowrap">
                         {log.username}
                       </td>
                       <td className="p-3">
@@ -238,7 +238,7 @@ export function ActivityLogPage() {
                           {formatAction(log.action)}
                         </Badge>
                       </td>
-                      <td className="p-3 font-cairo text-muted-foreground">
+                      <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                         {formatTarget(log.target_type)}
                         {log.target_id ? ` #${log.target_id}` : ""}
                       </td>
@@ -308,13 +308,13 @@ export function ActivityLogPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted">
                   <tr>
-                    <th className="p-3 text-start font-medium font-cairo">
+                    <th className="p-3 text-start font-medium font-cairo whitespace-nowrap">
                       {t("activity.field")}
                     </th>
-                    <th className="p-3 text-start font-medium font-cairo">
+                    <th className="p-3 text-start font-medium font-cairo whitespace-nowrap">
                       {t("activity.before")}
                     </th>
-                    <th className="p-3 text-start font-medium font-cairo">
+                    <th className="p-3 text-start font-medium font-cairo whitespace-nowrap">
                       {t("activity.after")}
                     </th>
                   </tr>

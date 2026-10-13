@@ -35,6 +35,7 @@ import type { Member, Subscription } from "@/lib/ipc";
 import { SubscribeDialog } from "./SubscribeDialog";
 import { FreezeDialog } from "./FreezeDialog";
 import { EditMembershipDialog } from "./EditMembershipDialog";
+import { RowActions } from "@/components/table/RowActions";
 import { useAuthStore } from "@/stores/auth";
 import {
   canReviewDiscount,
@@ -120,6 +121,12 @@ export function SubscriptionsPage() {
         key={s.id}
         className="border-t border-border hover:bg-muted/20 transition-colors"
       >
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+          {formatDate(s.created_at)}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
+          #{s.id}
+        </td>
         <td className="p-3">
           <div className="flex items-center gap-3">
             {memberPhotoUrl(s.member_snapshot.photo_path) ? (
@@ -134,10 +141,10 @@ export function SubscriptionsPage() {
               </div>
             )}
             <div>
-              <span className="font-cairo font-medium">
+              <span className="font-cairo font-medium whitespace-nowrap">
                 {fullName(s.member_snapshot)}
               </span>
-              <p className="text-xs text-muted-foreground font-cairo">
+              <p className="text-xs text-muted-foreground font-cairo whitespace-nowrap">
                 {s.member_snapshot.phone}
                 {s.member_snapshot.id_number
                   ? ` · ${s.member_snapshot.id_number}`
@@ -146,20 +153,29 @@ export function SubscriptionsPage() {
             </div>
           </div>
         </td>
-        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-          #{s.id}
-        </td>
-        <td className="p-3 font-cairo text-muted-foreground">
+        <td className="p-3 font-cairo whitespace-nowrap">
           {s.plan_snapshot.name}
         </td>
         <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-          {formatDate(s.created_at)}
-        </td>
-        <td className="p-3 font-cairo text-muted-foreground">
           {formatDate(s.start_date)}
         </td>
-        <td className="p-3 font-cairo text-muted-foreground">
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
           {formatDate(s.end_date)}
+        </td>
+        <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap tabular-nums">
+          {formatMoney(s.plan_snapshot.price_cents)}
+        </td>
+        <td className="p-3 font-cairo font-semibold whitespace-nowrap tabular-nums">
+          {formatMoney(s.paid_amount_cents)}
+        </td>
+        <td
+          className={`p-3 font-cairo whitespace-nowrap tabular-nums ${
+            s.unpaid_amount_cents > 0
+              ? "text-destructive font-semibold"
+              : "text-muted-foreground"
+          }`}
+        >
+          {formatMoney(s.unpaid_amount_cents)}
         </td>
         <td className="p-3">
           <div className="flex items-center gap-1">
@@ -171,126 +187,98 @@ export function SubscriptionsPage() {
                     ? "warning"
                     : "destructive"
               }
-              className="font-cairo"
+              className="font-cairo whitespace-nowrap"
             >
               {isExpired(s.end_date) && s.status === "active"
                 ? t("subscriptions.expired")
                 : t(`subscriptions.${s.status}`)}
             </Badge>
-            <Badge
-              variant={s.is_paid ? "success" : "destructive"}
-              className="font-cairo"
-            >
-              {t(
-                `subscriptions.${
-                  s.is_paid
-                    ? "paid"
-                    : s.paid_amount_cents > 0
-                      ? "partial"
-                      : "unpaid"
-                }`,
-              )}
-            </Badge>
             {showDiscount(s.discount_percent) && (
-              <Badge variant="default" className="font-cairo">
+              <Badge variant="default" className="font-cairo whitespace-nowrap">
                 {t("subscriptions.discount")} {s.discount_percent}%
               </Badge>
             )}
           </div>
         </td>
-        <td className="p-3 font-cairo font-semibold">
-          {formatMoney(s.paid_amount_cents)}
-        </td>
         <td className="p-3 font-cairo text-muted-foreground">
-          {formatMoney(s.plan_snapshot.price_cents)}
-        </td>
-        <td
-          className={`p-3 font-cairo ${
-            s.unpaid_amount_cents > 0
-              ? "text-destructive font-semibold"
-              : "text-muted-foreground"
-          }`}
-        >
-          {formatMoney(s.unpaid_amount_cents)}
-        </td>
-        <td className="p-3 font-cairo text-muted-foreground max-w-40 truncate">
-          {s.notes ?? "—"}
+          <span
+            className="block max-w-40 truncate"
+            title={s.notes ?? undefined}
+          >
+            {s.notes ?? "—"}
+          </span>
         </td>
         <td className="p-3">
-          <div className="flex items-center justify-end gap-1 flex-wrap">
-            {isManagement && canReviewDiscount(s) && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => approveMut.mutate(s.id)}
-                  disabled={approveMut.isPending || rejectMut.isPending}
-                  className="font-cairo"
-                >
-                  {t("subscriptions.approveDiscount")}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => rejectMut.mutate(s.id)}
-                  disabled={approveMut.isPending || rejectMut.isPending}
-                  className="font-cairo"
-                >
-                  {t("subscriptions.rejectDiscount")}
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditTarget(s)}
-              className="font-cairo"
-            >
-              {t("common.edit")}
-            </Button>
-            {s.status === "frozen" ? (
-              isManagement ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => unfreezeMut.mutate(s.id)}
-                  className="font-cairo"
-                >
-                  {t("subscriptions.unfreeze")}
-                </Button>
-              ) : null
-            ) : s.status === "active" ? (
-              <>
-                {isManagement && !isExpired(s.end_date) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFreezeTarget(s)}
-                    className="font-cairo"
-                  >
-                    {t("subscriptions.freeze")}
-                  </Button>
-                )}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setRenewTarget(s)}
-                  className="font-cairo"
-                >
-                  {t("subscriptions.renew")}
-                </Button>
-                {isManagement && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCancelTarget(s)}
-                    className="font-cairo text-destructive hover:text-destructive"
-                  >
-                    {t("subscriptions.cancel")}
-                  </Button>
-                )}
-              </>
-            ) : null}
-          </div>
+          <RowActions
+            actions={[
+              {
+                key: "edit",
+                label: t("common.edit"),
+                variant: "outline" as const,
+                onSelect: () => setEditTarget(s),
+              },
+              ...(isManagement && canReviewDiscount(s)
+                ? [
+                    {
+                      key: "approve",
+                      label: t("subscriptions.approveDiscount"),
+                      variant: "default" as const,
+                      disabled: approveMut.isPending || rejectMut.isPending,
+                      onSelect: () => approveMut.mutate(s.id),
+                    },
+                    {
+                      key: "reject",
+                      label: t("subscriptions.rejectDiscount"),
+                      variant: "destructive" as const,
+                      destructive: true,
+                      disabled: approveMut.isPending || rejectMut.isPending,
+                      onSelect: () => rejectMut.mutate(s.id),
+                    },
+                  ]
+                : []),
+              ...(s.status === "frozen" && isManagement
+                ? [
+                    {
+                      key: "unfreeze",
+                      label: t("subscriptions.unfreeze"),
+                      variant: "outline" as const,
+                      onSelect: () => unfreezeMut.mutate(s.id),
+                    },
+                  ]
+                : []),
+              ...(s.status === "active"
+                ? [
+                    ...(isManagement && !isExpired(s.end_date)
+                      ? [
+                          {
+                            key: "freeze",
+                            label: t("subscriptions.freeze"),
+                            variant: "outline" as const,
+                            onSelect: () => setFreezeTarget(s),
+                          },
+                        ]
+                      : []),
+                    {
+                      key: "renew",
+                      label: t("subscriptions.renew"),
+                      variant: "default" as const,
+                      onSelect: () => setRenewTarget(s),
+                    },
+                    ...(isManagement
+                      ? [
+                          {
+                            key: "cancel",
+                            label: t("subscriptions.cancel"),
+                            variant: "ghost" as const,
+                            destructive: true,
+                            onSelect: () => setCancelTarget(s),
+                          },
+                        ]
+                      : []),
+                  ]
+                : []),
+            ]}
+          />
         </td>
       </tr>
     );
@@ -298,43 +286,43 @@ export function SubscriptionsPage() {
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[1500px] text-sm">
+      <table className="w-full min-w-[1840px] text-sm">
         <thead className="bg-muted/50">
           <tr>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.member")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.id")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.plan")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("common.created")}
             </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.id")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.memberDetails")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.plan")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.startDate")}
             </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.endDate")}
             </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.status")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
-              {t("subscriptions.paidAmount")}
-            </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.planPrice")}
             </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.paidAmount")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.unpaidAmount")}
             </th>
-            <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.status")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.notes")}
             </th>
-            <th className="w-72 text-end font-medium text-muted-foreground p-3 font-cairo">
+            <th className="w-48 text-end font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("common.actions")}
             </th>
           </tr>
@@ -362,9 +350,6 @@ export function SubscriptionsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h2 className="text-lg font-semibold font-cairo">
-          {t("subscriptions.title")}
-        </h2>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -379,7 +364,7 @@ export function SubscriptionsPage() {
             setPickerSearch("");
             setShowPicker(true);
           }}
-          className="ms-auto font-cairo"
+          className="font-cairo"
         >
           <Plus className="w-4 h-4" />
           {t("subscriptions.subscribe")}

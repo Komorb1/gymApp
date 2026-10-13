@@ -143,7 +143,7 @@ export function ReportsPage() {
           </select>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead className="bg-muted/50">
               <tr>
                 {[
@@ -157,7 +157,7 @@ export function ReportsPage() {
                 ].map((key) => (
                   <th
                     key={key}
-                    className="p-3 text-start font-medium text-muted-foreground font-cairo"
+                    className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap"
                   >
                     {t(`subscriptions.${key}`)}
                   </th>
@@ -184,10 +184,10 @@ export function ReportsPage() {
                     <td className="p-3 font-cairo">
                       {subscription.plan_snapshot.name}
                     </td>
-                    <td className="p-3 text-muted-foreground font-cairo">
+                    <td className="p-3 text-muted-foreground font-cairo whitespace-nowrap">
                       {formatDate(subscription.start_date)}
                     </td>
-                    <td className="p-3 text-muted-foreground font-cairo">
+                    <td className="p-3 text-muted-foreground font-cairo whitespace-nowrap">
                       {formatDate(subscription.end_date)}
                     </td>
                     <td className="p-3">
@@ -300,25 +300,25 @@ export function ReportsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("subscriptions.member")}
                 </th>
-                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("members.phone")}
                 </th>
-                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("common.created")}
                 </th>
-                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("subscriptions.status")}
                 </th>
-                <th className="p-3 text-start font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-start font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("reports.allSubscriptions")}
                 </th>
-                <th className="p-3 text-end font-medium text-muted-foreground font-cairo">
+                <th className="p-3 text-end font-medium text-muted-foreground font-cairo whitespace-nowrap">
                   {t("common.actions")}
                 </th>
               </tr>
@@ -332,10 +332,10 @@ export function ReportsPage() {
                   <td className="p-3 font-medium font-cairo">
                     {fullName(report.member)}
                   </td>
-                  <td className="p-3 text-muted-foreground font-cairo">
+                  <td className="p-3 text-muted-foreground font-cairo whitespace-nowrap">
                     {report.member.phone}
                   </td>
-                  <td className="p-3 text-muted-foreground font-cairo">
+                  <td className="p-3 text-muted-foreground font-cairo whitespace-nowrap">
                     {formatDate(report.member.created_at)}
                   </td>
                   <td className="p-3">

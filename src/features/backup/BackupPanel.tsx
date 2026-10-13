@@ -210,22 +210,22 @@ export function BackupPanel() {
 
   const renderTableHead = () => (
     <tr>
-      <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+      <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("backup.name")}
       </th>
-      <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+      <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("backup.taken")}
       </th>
-      <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+      <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("backup.containsLabel")}
       </th>
-      <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+      <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("backup.size")}
       </th>
-      <th className="text-start font-medium text-muted-foreground p-3 font-cairo">
+      <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("backup.kindLabel")}
       </th>
-      <th className="w-52 text-end font-medium text-muted-foreground p-3 font-cairo">
+      <th className="w-52 text-end font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
         {t("common.actions")}
       </th>
     </tr>
