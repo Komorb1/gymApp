@@ -101,15 +101,13 @@ jobs:
             - **SK GYM Lite**: dashboard, members, memberships and plans only. No login, no accounts, no settings, reports or activity pages. It keeps its own data folder, so both editions can be installed and used side by side.
 
             ### Changes in ${{ github.ref_name }}
-            - Renewing a membership now adds the new membership while keeping the current one active until it expires, instead of cancelling it
-            - Expired memberships can no longer be frozen; the freeze action is hidden and refused by the backend
-            - Freeze and unfreeze actions are available on the member profile's membership table (management only)
-            - Long lists (plans, members, memberships, reports, activity) now scroll instead of being cut off at the window edge
-            - Dialogs cap to the window height and their plan lists scroll internally, so many plans no longer push buttons off screen
-            - Long membership notes clamp inside their cell instead of stretching the reports table sideways
-            - The edit membership plan picker matches the app's styling instead of a native dropdown
-            - Expiring soon members open the profile directly on the memberships tab, and the expiring badge no longer renders a raw translation key
-            - Membership tables show the date each membership was created
+            - Membership tables now order their columns as member, id, plan, created, and every membership shows its unique id
+            - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status
+            - Search narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
+            - The new membership form takes a created date, placed between the plan and the start date
+            - Renewing an already expired membership now says the new membership starts today
+            - The member profile is wide enough for its memberships table, so it no longer scrolls sideways
+            - Arabic text no longer carries diacritics the desk keyboard cannot type, so labels like "مجمد" can be searched and matched
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
