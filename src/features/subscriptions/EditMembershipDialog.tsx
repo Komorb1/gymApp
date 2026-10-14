@@ -19,6 +19,7 @@ import { usePlans } from "@/hooks/usePlans";
 import { formatMoney, fullName, isExpired, currencySymbol } from "@/lib/format";
 import {
   discountedPriceCents,
+  membershipMember,
   membershipPlanPriceCents,
 } from "@/lib/subscriptionView";
 import type { Subscription } from "@/lib/ipc";
@@ -109,7 +110,7 @@ export function EditMembershipDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="rounded-md bg-muted p-2 text-sm font-cairo">
-            {fullName(subscription.member_snapshot)}
+            {fullName(membershipMember(subscription))}
           </p>
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.plan")}</Label>

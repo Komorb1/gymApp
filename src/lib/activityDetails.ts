@@ -9,6 +9,7 @@ export type ActivityChange = {
 const hiddenFields = new Set([
   "id",
   "member_id",
+  "member",
   "plan_id",
   "user_id",
   "created_at",

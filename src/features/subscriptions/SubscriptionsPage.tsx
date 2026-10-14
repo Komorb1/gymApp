@@ -42,6 +42,7 @@ import {
   derivedMembershipStatus,
   filterMemberships,
   groupOperationalSubscriptions,
+  membershipMember,
   paymentStatusKey,
   renewConfirmationKey,
   showDiscount,
@@ -116,6 +117,7 @@ export function SubscriptionsPage() {
   };
 
   const renderRow = (s: Subscription) => {
+    const member = membershipMember(s);
     return (
       <tr
         key={s.id}
@@ -129,26 +131,24 @@ export function SubscriptionsPage() {
         </td>
         <td className="p-3">
           <div className="flex items-center gap-3">
-            {memberPhotoUrl(s.member_snapshot.photo_path) ? (
+            {memberPhotoUrl(member.photo_path) ? (
               <img
-                src={memberPhotoUrl(s.member_snapshot.photo_path)!}
+                src={memberPhotoUrl(member.photo_path)!}
                 alt=""
                 className="w-8 h-8 rounded-full object-cover"
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                {s.member_snapshot.first_name[0]?.toUpperCase()}
+                {member.first_name[0]?.toUpperCase()}
               </div>
             )}
             <div>
               <span className="font-cairo font-medium whitespace-nowrap">
-                {fullName(s.member_snapshot)}
+                {fullName(member)}
               </span>
               <p className="text-xs text-muted-foreground font-cairo whitespace-nowrap">
-                {s.member_snapshot.phone}
-                {s.member_snapshot.id_number
-                  ? ` · ${s.member_snapshot.id_number}`
-                  : ""}
+                {member.phone}
+                {member.id_number ? ` · ${member.id_number}` : ""}
               </p>
             </div>
           </div>
@@ -454,7 +454,7 @@ export function SubscriptionsPage() {
           </DialogHeader>
           {cancelTarget && (
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {fullName(cancelTarget.member_snapshot)} —{" "}
+              {fullName(membershipMember(cancelTarget))} —{" "}
               {cancelTarget.plan_snapshot.name}
             </p>
           )}
@@ -497,7 +497,7 @@ export function SubscriptionsPage() {
           </DialogHeader>
           {renewTarget && (
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {fullName(renewTarget.member_snapshot)} —{" "}
+              {fullName(membershipMember(renewTarget))} —{" "}
               {renewTarget.plan_snapshot.name}
             </p>
           )}

@@ -11,6 +11,7 @@ import {
   filterMemberships,
   filterReportSubscriptions,
   groupOperationalSubscriptions,
+  membershipMember,
   membershipPlanPriceCents,
   renewConfirmationKey,
   showDiscount,
@@ -379,5 +380,35 @@ describe("renewal confirmation", () => {
     expect(
       renewConfirmationKey(subscription(2, 2, "active", "2020-01-01")),
     ).toBe("subscriptions.renewConfirmExpired");
+  });
+});
+
+describe("membership member details", () => {
+  it("shows the member as they are recorded now", () => {
+    const row = subscription(1, 1, "active", "2026-12-01");
+    const renamed = {
+      ...row,
+      member: {
+        ...row.member_snapshot,
+        first_name: "Abdulsalam",
+        phone: "0506787651",
+        is_deleted: false,
+        deleted_at: null,
+        updated_at: "2026-10-14T00:00:00Z",
+      },
+    };
+
+    expect(membershipMember(renamed).first_name).toBe("Abdulsalam");
+    expect(membershipMember(renamed).phone).toBe("0506787651");
+    expect(renamed.member_snapshot.first_name).toBe("Amina");
+  });
+
+  it("falls back to the stored snapshot when the member is not attached", () => {
+    const row = subscription(1, 1, "active", "2026-12-01");
+
+    expect(membershipMember(row)).toEqual(row.member_snapshot);
+    expect(membershipMember({ ...row, member: null })).toEqual(
+      row.member_snapshot,
+    );
   });
 });

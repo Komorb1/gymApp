@@ -15,6 +15,7 @@ import {
 import { useFreezeSubscription } from "@/hooks/useSubscriptions";
 import type { Subscription } from "@/lib/ipc";
 import { fullName } from "@/lib/format";
+import { membershipMember } from "@/lib/subscriptionView";
 
 interface FreezeDialogProps {
   subscription: Subscription;
@@ -62,7 +63,7 @@ export function FreezeDialog({ subscription, onClose }: FreezeDialogProps) {
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.member")}</Label>
             <p className="text-sm font-cairo p-2 rounded-md bg-muted">
-              {fullName(subscription.member_snapshot)}
+              {fullName(membershipMember(subscription))}
             </p>
           </div>
 

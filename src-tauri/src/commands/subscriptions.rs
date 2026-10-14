@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use rusqlite::types::Type;
 use tauri::State;
 
+use crate::commands::members::row_to_member;
 use crate::db::{log_activity, Db};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    CreateSubscriptionInput, DashboardStats, MemberSnapshot, PlanSnapshot, RenewSubscriptionInput,
-    Subscription, UpdateSubscriptionInput,
+    CreateSubscriptionInput, DashboardStats, Member, MemberSnapshot, PlanSnapshot,
+    RenewSubscriptionInput, Subscription, UpdateSubscriptionInput,
 };
 use crate::session::{require_management, require_user, Sessions};
 
@@ -20,6 +23,7 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
         member_id: row.get("member_id")?,
         plan_id: row.get("plan_id")?,
         member_snapshot: decode_json(row.get("member_snapshot_json")?)?,
+        member: None,
         plan_snapshot: decode_json(row.get("plan_snapshot_json")?)?,
         start_date: row.get("start_date")?,
         end_date: row.get("end_date")?,
@@ -56,6 +60,43 @@ fn subscription_by_id(conn: &rusqlite::Connection, id: i64) -> AppResult<Subscri
         }
         other => AppError::Sqlite(other),
     })
+}
+
+const MEMBER_COLUMNS: &str = "id, first_name, middle_name, last_name, id_number, phone, \
+     whatsapp_no, email, birth_date, notes, photo_path, is_deleted, deleted_at, created_at, updated_at";
+
+fn attach_current_members(
+    conn: &rusqlite::Connection,
+    subscriptions: &mut [Subscription],
+) -> AppResult<()> {
+    let mut member_ids = subscriptions
+        .iter()
+        .map(|subscription| subscription.member_id)
+        .collect::<Vec<_>>();
+    member_ids.sort_unstable();
+    member_ids.dedup();
+    if member_ids.is_empty() {
+        return Ok(());
+    }
+
+    let placeholders = vec!["?"; member_ids.len()].join(", ");
+    let mut statement = conn.prepare(&format!(
+        "SELECT {MEMBER_COLUMNS} FROM members WHERE id IN ({placeholders})"
+    ))?;
+    let members = statement
+        .query_map(rusqlite::params_from_iter(member_ids.iter()), row_to_member)?
+        .collect::<Result<Vec<Member>, _>>()?
+        .into_iter()
+        .map(|member| (member.id, member))
+        .collect::<HashMap<i64, Member>>();
+
+    for subscription in subscriptions.iter_mut() {
+        if let Some(member) = members.get(&subscription.member_id) {
+            subscription.member = Some(member.clone());
+        }
+    }
+
+    Ok(())
 }
 
 fn member_snapshot(conn: &rusqlite::Connection, member_id: i64) -> AppResult<MemberSnapshot> {
@@ -320,11 +361,11 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_discount_review, can_review_discount_request, discounted_price_cents,
-        edited_membership_status, ensure_membership_can_freeze, ensure_membership_dates_are_valid,
-        ensure_no_current_membership, expired_overdue_count, membership_created_at,
-        membership_creation_status, renew_membership, reviewed_membership_status,
-        validate_paid_amount,
+        apply_discount_review, attach_current_members, can_review_discount_request,
+        discounted_price_cents, edited_membership_status, ensure_membership_can_freeze,
+        ensure_membership_dates_are_valid, ensure_no_current_membership, expired_overdue_count,
+        membership_created_at, membership_creation_status, renew_membership,
+        reviewed_membership_status, row_to_subscription, validate_paid_amount,
     };
     use crate::db::migrations;
     use crate::models::{MemberSnapshot, PlanSnapshot, RenewSubscriptionInput, Subscription};
@@ -624,6 +665,64 @@ mod tests {
         assert_eq!(expired_overdue_count(&conn, date(2026, 2, 15)).unwrap(), 1);
     }
 
+    #[test]
+    fn membership_rows_carry_the_current_member_details() {
+        let conn = setup_conn();
+        insert_member_and_plan(&conn);
+        insert_active_membership(&conn, "2027-01-01");
+
+        conn.execute(
+            "UPDATE members SET first_name = 'Abdulsalam', phone = '0506787651' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+
+        let mut subscriptions = conn
+            .prepare("SELECT * FROM subscriptions")
+            .unwrap()
+            .query_map([], row_to_subscription)
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        attach_current_members(&conn, &mut subscriptions).unwrap();
+
+        let subscription = &subscriptions[0];
+        let member = subscription.member.as_ref().unwrap();
+        assert_eq!(member.first_name, "Abdulsalam");
+        assert_eq!(member.phone, "0506787651");
+        assert_eq!(subscription.member_snapshot.first_name, "Test");
+        assert_eq!(subscription.member_snapshot.phone, "123");
+
+        let payload = serde_json::to_string(subscription).unwrap();
+        assert!(payload.contains("\"member\":{\"id\":1,\"first_name\":\"Abdulsalam\""));
+        assert!(payload.contains("\"member_snapshot\":{\"id\":1,\"first_name\":\"Test\""));
+    }
+
+    #[test]
+    fn soft_deleted_members_still_name_their_memberships() {
+        let conn = setup_conn();
+        insert_member_and_plan(&conn);
+        insert_active_membership(&conn, "2027-01-01");
+        conn.execute(
+            "UPDATE members SET is_deleted = 1, deleted_at = '2026-10-14T00:00:00Z' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+
+        let mut subscriptions = conn
+            .prepare("SELECT * FROM subscriptions")
+            .unwrap()
+            .query_map([], row_to_subscription)
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        attach_current_members(&conn, &mut subscriptions).unwrap();
+
+        let member = subscriptions[0].member.as_ref().unwrap();
+        assert_eq!(member.first_name, "Test");
+        assert!(member.is_deleted);
+    }
+
     fn member_snapshot_fixture() -> MemberSnapshot {
         MemberSnapshot {
             id: 1,
@@ -656,6 +755,7 @@ mod tests {
             member_id: 1,
             plan_id: 1,
             member_snapshot: member_snapshot_fixture(),
+            member: None,
             plan_snapshot: plan_snapshot_fixture(),
             start_date: "2026-01-01".into(),
             end_date,
@@ -831,10 +931,15 @@ pub async fn list_subscriptions(
 ) -> AppResult<Vec<Subscription>> {
     db.with_conn(|conn| {
         require_user(conn, &sessions, &session_token)?;
-        let mut statement = conn.prepare("SELECT * FROM subscriptions ORDER BY end_date DESC")?;
-        let subscriptions = statement
-            .query_map([], row_to_subscription)?
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut subscriptions = {
+            let mut statement =
+                conn.prepare("SELECT * FROM subscriptions ORDER BY end_date DESC")?;
+            let rows = statement
+                .query_map([], row_to_subscription)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        };
+        attach_current_members(conn, &mut subscriptions)?;
         Ok(subscriptions)
     })
 }
@@ -848,11 +953,16 @@ pub async fn list_member_subscriptions(
 ) -> AppResult<Vec<Subscription>> {
     db.with_conn(|conn| {
         require_user(conn, &sessions, &session_token)?;
-        let mut statement = conn
-            .prepare("SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC")?;
-        let subscriptions = statement
-            .query_map(rusqlite::params![member_id], row_to_subscription)?
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut subscriptions = {
+            let mut statement = conn.prepare(
+                "SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC",
+            )?;
+            let rows = statement
+                .query_map(rusqlite::params![member_id], row_to_subscription)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        };
+        attach_current_members(conn, &mut subscriptions)?;
         Ok(subscriptions)
     })
 }

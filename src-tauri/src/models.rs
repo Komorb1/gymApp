@@ -189,6 +189,8 @@ pub struct Subscription {
     pub member_id: i64,
     pub plan_id: i64,
     pub member_snapshot: MemberSnapshot,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member: Option<Member>,
     pub plan_snapshot: PlanSnapshot,
     pub start_date: String,
     pub end_date: String,

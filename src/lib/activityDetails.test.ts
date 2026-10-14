@@ -55,6 +55,31 @@ describe("activity change details", () => {
     ]);
   });
 
+  it("ignores the live member key so stored history keeps its snapshot name", () => {
+    const after = JSON.stringify({
+      member_snapshot: {
+        first_name: "a",
+        middle_name: null,
+        last_name: "a a",
+        phone: "0506787651",
+      },
+      member: {
+        first_name: "Abdulsalam",
+        middle_name: null,
+        last_name: "",
+        phone: "0506787651",
+      },
+      plan_snapshot: { name: "6 Months", price_cents: 120000 },
+    });
+
+    expect(activityChanges(null, after)).toEqual([
+      { field: "member", before: null, after: "a a a" },
+      { field: "phone", before: null, after: "0506787651" },
+      { field: "plan", before: null, after: "6 Months" },
+      { field: "price_cents", before: null, after: 120000 },
+    ]);
+  });
+
   it("uses the new membership when rendering renewal details", () => {
     const before = JSON.stringify({
       start_date: "2026-01-01",

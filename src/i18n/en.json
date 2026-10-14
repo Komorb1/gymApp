@@ -270,7 +270,6 @@
     "memberDetails": "Member Details",
     "plan": "Plan",
     "id": "Membership ID",
-    "createdDate": "Created date",
     "searchPlaceholder": "Search by membership ID, plan, date, or status...",
     "noSearchResults": "No memberships match your search",
     "frozenUntil": "Frozen Until",

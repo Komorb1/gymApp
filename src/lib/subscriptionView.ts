@@ -1,4 +1,4 @@
-import type { MemberReport, Plan, Subscription } from "./ipc";
+import type { MemberReport, MemberSnapshot, Plan, Subscription } from "./ipc";
 import { formatDate, fullName, isExpired } from "./format";
 
 export type OperationalSubscriptionGroups = {
@@ -78,6 +78,10 @@ export function groupOperationalSubscriptions(
 
 export function showDiscount(discountPercent: number): boolean {
   return discountPercent > 0;
+}
+
+export function membershipMember(subscription: Subscription): MemberSnapshot {
+  return subscription.member ?? subscription.member_snapshot;
 }
 
 export function membershipPlanPriceCents(

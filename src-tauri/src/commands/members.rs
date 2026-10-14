@@ -8,7 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::models::{CreateMemberInput, Member, MemberFlag, MemberReport, UpdateMemberInput};
 use crate::session::{require_management, require_user, Sessions};
 
-fn row_to_member(row: &rusqlite::Row) -> rusqlite::Result<Member> {
+pub(crate) fn row_to_member(row: &rusqlite::Row) -> rusqlite::Result<Member> {
     Ok(Member {
         id: row.get("id")?,
         first_name: row.get("first_name")?,
@@ -546,12 +546,15 @@ pub async fn list_member_reports(
             .prepare("SELECT * FROM subscriptions WHERE member_id = ?1 ORDER BY created_at DESC")?;
         let mut reports = Vec::with_capacity(members.len());
         for member in members {
-            let subscriptions = subscription_statement
+            let mut subscriptions = subscription_statement
                 .query_map(
                     rusqlite::params![member.id],
                     crate::commands::subscriptions::row_to_subscription,
                 )?
                 .collect::<Result<Vec<_>, _>>()?;
+            for subscription in subscriptions.iter_mut() {
+                subscription.member = Some(member.clone());
+            }
             reports.push(MemberReport {
                 member,
                 subscriptions,

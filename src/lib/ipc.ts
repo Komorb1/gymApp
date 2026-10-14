@@ -139,6 +139,7 @@ export type Subscription = {
   member_id: number;
   plan_id: number;
   member_snapshot: MemberSnapshot;
+  member?: Member | null;
   plan_snapshot: PlanSnapshot;
   start_date: string;
   end_date: string;
