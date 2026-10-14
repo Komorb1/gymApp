@@ -101,6 +101,9 @@ jobs:
             - **SK GYM Lite**: dashboard, members, memberships and plans only. No login, no accounts, no settings, reports or activity pages. It keeps its own data folder, so both editions can be installed and used side by side.
 
             ### Changes in ${{ github.ref_name }}
+            - Editing a member now shows up on their memberships: the memberships list, the dashboard expiring list and every membership window show the member as they are recorded now, while each membership keeps the plan price and the history it was created with
+            - The new membership form asks for the start date only; the created date is stamped for you when you save
+            - Fixed the window freezing after saving an edited membership from a member's account page, which used to leave the app unresponsive until it was closed and reopened
             - Every table now reads in the order the desk works in: the members list shows created, member id, name, phone and email, with the actions at the end
             - Both membership tables share one column order: created, membership id, member details, plan, start date, end date, plan price, paid amount, un-paid amount, status, membership notes and actions
             - A membership's plan price, paid amount and un-paid amount are separate columns now instead of one combined payment cell, so the balance is readable at a glance
@@ -118,7 +121,6 @@ jobs:
             - The complete edition has Backup in Settings, the Lite edition has its own Backup page in the sidebar
             - The backup list shows ten entries per page and scrolls inside its own box, so a long list never pushes the page around
             - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status, and it narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
-            - The new membership form takes a created date, placed between the plan and the start date
             - Renewing an already expired membership now says the new membership starts today
             - Arabic text no longer carries diacritics the desk keyboard cannot type, so labels like "مجمد" can be searched and matched
           releaseDraft: false
