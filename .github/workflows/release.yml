@@ -105,7 +105,7 @@ jobs:
             - The new membership form asks for the start date only; the created date is stamped for you when you save
             - Fixed the window freezing after saving an edited membership from a member's account page, which used to leave the app unresponsive until it was closed and reopened
             - Every table now reads in the order the desk works in: the members list shows created, member id, name, phone and email, with the actions at the end
-            - Both membership tables share one column order: created, membership id, member details, plan, start date, end date, plan price, paid amount, un-paid amount, status, membership notes and actions
+            - Both membership tables share one column order: created, membership id, member details, plan, start date, end date, plan price, paid amount, un-paid amount, payment type, status, membership notes and actions
             - A membership's plan price, paid amount and un-paid amount are separate columns now instead of one combined payment cell, so the balance is readable at a glance
             - Rows that would carry three or more actions show a single "more actions" button instead of a row of stacked buttons
             - Table text no longer wraps into crowded cells: headers, dates, ids and amounts each stay on one line, and amounts line up on their digits
@@ -123,6 +123,11 @@ jobs:
             - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status, and it narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
             - Renewing an already expired membership now says the new membership starts today
             - Arabic text no longer carries diacritics the desk keyboard cannot type, so labels like "مجمد" can be searched and matched
+            - Every membership now records how it was paid: cash or bank transfer. The new membership window, the renewal window and the edit membership window all ask for it, and both membership tables show it in its own column. Memberships created before this release show a dash until someone sets it
+            - Renewing a membership that is still running no longer overlaps the day it ends: the new membership starts the day after the old one's last day, and the renewal window tells you that start date before you confirm. Renewing an expired membership still starts today
+            - Cancelling a membership that was only part paid no longer leaves it listed under Partially paid; the amount paid stays on the membership's own history
+            - The member account page tabs are now called Member and Membership instead of the plural wording
+            - A membership's created column now shows the time of day as well as the date, in both membership tables
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
