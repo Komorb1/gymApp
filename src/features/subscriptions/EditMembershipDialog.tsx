@@ -22,8 +22,9 @@ import {
   membershipMember,
   membershipPlanPriceCents,
 } from "@/lib/subscriptionView";
-import type { Subscription } from "@/lib/ipc";
+import type { PaymentMethod, Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
+import { PaymentMethodPicker } from "./PaymentMethodField";
 
 interface EditMembershipDialogProps {
   subscription: Subscription;
@@ -46,6 +47,9 @@ export function EditMembershipDialog({
   );
   const [paidAmount, setPaidAmount] = useState(
     (subscription.paid_amount_cents / 100).toFixed(2),
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    subscription.payment_method,
   );
   const [notes, setNotes] = useState(subscription.notes ?? "");
   const [error, setError] = useState("");
@@ -73,6 +77,7 @@ export function EditMembershipDialog({
         end_date: endDate,
         discount_percent: Number(discountPercent),
         paid_amount_cents: paidAmountCents,
+        payment_method: paymentMethod,
         notes: notes || null,
       },
       {
@@ -234,6 +239,16 @@ export function EditMembershipDialog({
               {t("subscriptions.unpaidAmount")}:{" "}
               {formatMoney(unpaidAmountCents)}
             </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.paymentMethod")}
+            </Label>
+            <PaymentMethodPicker
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              allowUnset
+            />
           </div>
           <div className="space-y-2">
             <Label className="font-cairo">{t("subscriptions.notes")}</Label>

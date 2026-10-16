@@ -4,6 +4,7 @@ import { Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -26,15 +27,17 @@ import { useMembers } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   formatDate,
+  formatDateTime,
   formatMoney,
   fullName,
   isExpired,
   memberPhotoUrl,
 } from "@/lib/format";
-import type { Member, Subscription } from "@/lib/ipc";
+import type { Member, PaymentMethod, Subscription } from "@/lib/ipc";
 import { SubscribeDialog } from "./SubscribeDialog";
 import { FreezeDialog } from "./FreezeDialog";
 import { EditMembershipDialog } from "./EditMembershipDialog";
+import { PaymentMethodPicker, PaymentMethodValue } from "./PaymentMethodField";
 import { RowActions } from "@/components/table/RowActions";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -45,6 +48,7 @@ import {
   membershipMember,
   paymentStatusKey,
   renewConfirmationKey,
+  renewalStartDate,
   showDiscount,
 } from "@/lib/subscriptionView";
 
@@ -64,6 +68,8 @@ export function SubscriptionsPage() {
   const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
+  const [renewPaymentMethod, setRenewPaymentMethod] =
+    useState<PaymentMethod | null>("cash");
   const [editTarget, setEditTarget] = useState<Subscription | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -92,12 +98,18 @@ export function SubscriptionsPage() {
     };
   }, [subs, debouncedSearch, t]);
 
+  const openRenew = (subscription: Subscription) => {
+    setRenewPaymentMethod(subscription.payment_method ?? "cash");
+    setRenewTarget(subscription);
+  };
+
   const handleRenew = (s: Subscription) => {
     renewMut.mutate({
       subscription_id: s.id,
       plan_id: s.plan_id,
       discount_percent: s.discount_percent,
       paid_amount_cents: s.paid_amount_cents,
+      payment_method: renewPaymentMethod,
       notes: null,
     });
   };
@@ -124,7 +136,7 @@ export function SubscriptionsPage() {
         className="border-t border-border hover:bg-muted/20 transition-colors"
       >
         <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-          {formatDate(s.created_at)}
+          {formatDateTime(s.created_at)}
         </td>
         <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
           #{s.id}
@@ -176,6 +188,9 @@ export function SubscriptionsPage() {
           }`}
         >
           {formatMoney(s.unpaid_amount_cents)}
+        </td>
+        <td className="p-3 text-muted-foreground">
+          <PaymentMethodValue value={s.payment_method} />
         </td>
         <td className="p-3">
           <div className="flex items-center gap-1">
@@ -262,7 +277,7 @@ export function SubscriptionsPage() {
                       key: "renew",
                       label: t("subscriptions.renew"),
                       variant: "default" as const,
-                      onSelect: () => setRenewTarget(s),
+                      onSelect: () => openRenew(s),
                     },
                     ...(isManagement
                       ? [
@@ -286,7 +301,7 @@ export function SubscriptionsPage() {
 
   const Table = ({ rows }: { rows: Subscription[] }) => (
     <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[1840px] text-sm">
+      <table className="w-full min-w-[2000px] text-sm">
         <thead className="bg-muted/50">
           <tr>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
@@ -317,6 +332,9 @@ export function SubscriptionsPage() {
               {t("subscriptions.unpaidAmount")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+              {t("subscriptions.paymentMethod")}
+            </th>
+            <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
               {t("subscriptions.status")}
             </th>
             <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
@@ -331,7 +349,7 @@ export function SubscriptionsPage() {
           {rows.length === 0 ? (
             <tr>
               <td
-                colSpan={12}
+                colSpan={13}
                 className="p-6 text-center text-muted-foreground font-cairo"
               >
                 {searching
@@ -492,6 +510,11 @@ export function SubscriptionsPage() {
                 renewTarget
                   ? renewConfirmationKey(renewTarget)
                   : "subscriptions.renewConfirm",
+                {
+                  date: renewTarget
+                    ? formatDate(renewalStartDate(renewTarget))
+                    : "",
+                },
               )}
             </DialogDescription>
           </DialogHeader>
@@ -501,6 +524,15 @@ export function SubscriptionsPage() {
               {renewTarget.plan_snapshot.name}
             </p>
           )}
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.paymentMethod")}
+            </Label>
+            <PaymentMethodPicker
+              value={renewPaymentMethod}
+              onChange={setRenewPaymentMethod}
+            />
+          </div>
           <DialogFooter>
             <Button
               variant="outline"

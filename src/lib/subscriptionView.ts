@@ -68,7 +68,11 @@ export function groupOperationalSubscriptions(
       if (subscription.end_date <= soon) groups.expiring.push(subscription);
     }
 
-    if (subscription.paid_amount_cents > 0 && !subscription.is_paid) {
+    if (
+      subscription.status !== "cancelled" &&
+      subscription.paid_amount_cents > 0 &&
+      !subscription.is_paid
+    ) {
       groups.partial.push(subscription);
     }
   }
@@ -238,6 +242,23 @@ export function renewConfirmationKey(
   return isExpired(subscription.end_date)
     ? "subscriptions.renewConfirmExpired"
     : "subscriptions.renewConfirm";
+}
+
+export function renewalStartsTheNextDay(
+  subscription: Subscription,
+  now = new Date(),
+): boolean {
+  return subscription.end_date >= dateOnly(now);
+}
+
+export function renewalStartDate(
+  subscription: Subscription,
+  now = new Date(),
+): string {
+  if (renewalStartsTheNextDay(subscription, now)) {
+    return shiftedDate(new Date(subscription.end_date), 1);
+  }
+  return dateOnly(now);
 }
 
 export type ReportMemberFilter = "all" | "active" | "deleted";

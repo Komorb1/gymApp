@@ -134,6 +134,8 @@ export type PlanSnapshot = {
   price_cents: number;
 };
 
+export type PaymentMethod = "cash" | "bank_transfer";
+
 export type Subscription = {
   id: number;
   member_id: number;
@@ -151,6 +153,7 @@ export type Subscription = {
   unpaid_amount_cents: number;
   discount_percent: number;
   is_paid: boolean;
+  payment_method: PaymentMethod | null;
   discount_requested_by_user_id: number | null;
   discount_approval_status: "pending" | "approved" | "rejected" | null;
   discount_reviewed_by_user_id: number | null;
@@ -168,6 +171,7 @@ export type CreateSubscriptionInput = {
   created_at?: string | null;
   discount_percent: number;
   paid_amount_cents: number;
+  payment_method?: PaymentMethod | null;
   notes?: string | null;
 };
 
@@ -176,6 +180,7 @@ export type RenewSubscriptionInput = {
   plan_id?: number | null;
   discount_percent: number;
   paid_amount_cents: number;
+  payment_method?: PaymentMethod | null;
   notes?: string | null;
 };
 
@@ -186,6 +191,7 @@ export type UpdateSubscriptionInput = {
   end_date: string;
   discount_percent: number;
   paid_amount_cents: number;
+  payment_method?: PaymentMethod | null;
   notes?: string | null;
 };
 

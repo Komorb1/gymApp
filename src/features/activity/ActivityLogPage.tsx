@@ -15,6 +15,7 @@ import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { activityChanges, type ActivityValue } from "@/lib/activityDetails";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { ActivityLog } from "@/lib/ipc";
+import { paymentMethodLabelKey } from "@/lib/paymentMethod";
 
 const actionColors: Record<
   string,
@@ -118,6 +119,10 @@ export function ActivityLogPage() {
     }
     if (field === "discount_approval_status" && typeof value === "string") {
       return t(`subscriptions.${value}`, { defaultValue: value });
+    }
+    if (field === "payment_method" && typeof value === "string") {
+      const labelKey = paymentMethodLabelKey(value);
+      return labelKey ? t(labelKey) : value;
     }
     if (typeof value === "boolean") {
       return t(value ? "common.yes" : "common.no");

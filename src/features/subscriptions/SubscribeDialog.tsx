@@ -16,8 +16,9 @@ import {
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
 import { formatMoney, currencySymbol } from "@/lib/format";
-import type { Member } from "@/lib/ipc";
+import type { Member, PaymentMethod } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
+import { PaymentMethodPicker } from "./PaymentMethodField";
 
 interface SubscribeDialogProps {
   member: Member;
@@ -37,6 +38,9 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
   );
   const [discountPercent, setDiscountPercent] = useState("0");
   const [paidAmount, setPaidAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    "cash",
+  );
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -77,6 +81,7 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         start_date: startDate || null,
         discount_percent: Number(discountPercent),
         paid_amount_cents: paidAmountCents,
+        payment_method: paymentMethod,
         notes: notes || null,
       },
       {
@@ -190,6 +195,16 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
               {t("subscriptions.unpaidAmount")}:{" "}
               {formatMoney(unpaidAmountCents)}
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.paymentMethod")}
+            </Label>
+            <PaymentMethodPicker
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+            />
           </div>
 
           <div className="space-y-2">

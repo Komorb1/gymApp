@@ -118,6 +118,7 @@
       "paid_amount_cents": "المبلغ المدفوع",
       "discount_percent": "نسبة الخصم",
       "is_paid": "حالة الدفع",
+      "payment_method": "طريقة الدفع",
       "is_active": "نشط",
       "is_deleted": "محذوف",
       "username": "اسم المستخدم",
@@ -218,6 +219,10 @@
     "inactive": "غير نشط",
     "empty": "لا يوجد أعضاء بعد",
     "emptyCta": "أضف أول عضو",
+    "tabs": {
+      "member": "عضو",
+      "membership": "عضوية"
+    },
     "cannotDeleteSubscribed": "لا يمكن حذف عضو لديه سجل عضوية. سيبقى العضو محفوظا في التقارير."
   },
   "plans": {
@@ -253,6 +258,12 @@
     "partial": "مدفوع جزئيا",
     "unpaid": "غير مدفوع",
     "payment": "الدفع",
+    "paymentMethod": "طريقة الدفع",
+    "paymentMethods": {
+      "cash": "نقدا",
+      "bankTransfer": "تحويل بنكي",
+      "unset": "غير محدد"
+    },
     "paidAmount": "المبلغ المدفوع",
     "planPrice": "سعر الباقة",
     "unpaidAmount": "المبلغ المتبقي",
@@ -277,7 +288,7 @@
     "subscribeMember": "عضوية جديدة",
     "noActiveSubs": "لا توجد عضويات نشطة",
     "cancelConfirm": "إلغاء هذه العضوية؟",
-    "renewConfirm": "تجديد هذه العضوية؟ ستضاف عضوية جديدة وتبقى العضوية الحالية فعالة حتى انتهائها.",
+    "renewConfirm": "تجديد هذه العضوية؟ ستبدأ العضوية الجديدة في {{date}} وتبقى العضوية الحالية فعالة حتى انتهائها.",
     "renewConfirmExpired": "تجديد هذه العضوية؟ هذه العضوية منتهية، لذا ستبدأ العضوية الجديدة من اليوم.",
     "approveDiscount": "اعتماد الخصم",
     "rejectDiscount": "رفض الخصم",

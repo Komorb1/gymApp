@@ -5,6 +5,7 @@ import { ArrowLeft, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -26,6 +27,7 @@ import {
 import { useNavStore } from "@/stores/nav";
 import {
   formatDate,
+  formatDateTime,
   formatMoney,
   fullName,
   isExpired,
@@ -34,15 +36,20 @@ import {
 import { SubscribeDialog } from "@/features/subscriptions/SubscribeDialog";
 import { EditMembershipDialog } from "@/features/subscriptions/EditMembershipDialog";
 import { FreezeDialog } from "@/features/subscriptions/FreezeDialog";
+import {
+  PaymentMethodPicker,
+  PaymentMethodValue,
+} from "@/features/subscriptions/PaymentMethodField";
 import { RowActions } from "@/components/table/RowActions";
 import { MemberForm } from "./MemberForm";
-import type { Subscription } from "@/lib/ipc";
+import type { PaymentMethod, Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 import {
   derivedMembershipStatus,
   filterMemberships,
   paymentStatusKey,
   renewConfirmationKey,
+  renewalStartDate,
   showDiscount,
 } from "@/lib/subscriptionView";
 
@@ -81,6 +88,8 @@ export function MemberProfile() {
   const debouncedSubSearch = useDebouncedValue(subSearch, 300);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
+  const [renewPaymentMethod, setRenewPaymentMethod] =
+    useState<PaymentMethod | null>("cash");
   const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [editSubscription, setEditSubscription] = useState<Subscription | null>(
     null,
@@ -132,6 +141,11 @@ export function MemberProfile() {
     }
   };
 
+  const openRenew = (subscription: Subscription) => {
+    setRenewPaymentMethod(subscription.payment_method ?? "cash");
+    setRenewTarget(subscription);
+  };
+
   const confirmRenew = () => {
     if (renewTarget) {
       renewMut.mutate({
@@ -139,6 +153,7 @@ export function MemberProfile() {
         plan_id: renewTarget.plan_id,
         discount_percent: renewTarget.discount_percent,
         paid_amount_cents: renewTarget.paid_amount_cents,
+        payment_method: renewPaymentMethod,
         notes: null,
       });
       setRenewTarget(null);
@@ -219,10 +234,10 @@ export function MemberProfile() {
       >
         <TabsList>
           <TabsTrigger value="overview" className="font-cairo">
-            {t("members.title")}
+            {t("members.tabs.member")}
           </TabsTrigger>
           <TabsTrigger value="subs" className="font-cairo">
-            {t("subscriptions.title")} ({subs.length})
+            {t("members.tabs.membership")} ({subs.length})
           </TabsTrigger>
         </TabsList>
 
@@ -341,7 +356,7 @@ export function MemberProfile() {
             ) : (
               <>
                 <div className="rounded-lg border border-border overflow-x-auto">
-                  <table className="w-full min-w-[1720px] text-sm">
+                  <table className="w-full min-w-[1880px] text-sm">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
@@ -369,6 +384,9 @@ export function MemberProfile() {
                           {t("subscriptions.unpaidAmount")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
+                          {t("subscriptions.paymentMethod")}
+                        </th>
+                        <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
                           {t("subscriptions.status")}
                         </th>
                         <th className="text-start font-medium text-muted-foreground p-3 font-cairo whitespace-nowrap">
@@ -387,7 +405,7 @@ export function MemberProfile() {
                             className="border-t border-border hover:bg-muted/20 transition-colors"
                           >
                             <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-                              {formatDate(s.created_at)}
+                              {formatDateTime(s.created_at)}
                             </td>
                             <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                               #{s.id}
@@ -415,6 +433,9 @@ export function MemberProfile() {
                               }`}
                             >
                               {formatMoney(s.unpaid_amount_cents)}
+                            </td>
+                            <td className="p-3 text-muted-foreground">
+                              <PaymentMethodValue value={s.payment_method} />
                             </td>
                             <td className="p-3">
                               <div className="flex items-center gap-1">
@@ -494,7 +515,7 @@ export function MemberProfile() {
                                           key: "renew",
                                           label: t("subscriptions.renew"),
                                           variant: "default" as const,
-                                          onSelect: () => setRenewTarget(s),
+                                          onSelect: () => openRenew(s),
                                         },
                                         ...(isManagement
                                           ? [
@@ -631,6 +652,11 @@ export function MemberProfile() {
                 renewTarget
                   ? renewConfirmationKey(renewTarget)
                   : "subscriptions.renewConfirm",
+                {
+                  date: renewTarget
+                    ? formatDate(renewalStartDate(renewTarget))
+                    : "",
+                },
               )}
             </DialogDescription>
           </DialogHeader>
@@ -640,6 +666,15 @@ export function MemberProfile() {
               {formatMoney(renewTarget.final_price_cents)}
             </p>
           )}
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.paymentMethod")}
+            </Label>
+            <PaymentMethodPicker
+              value={renewPaymentMethod}
+              onChange={setRenewPaymentMethod}
+            />
+          </div>
           <DialogFooter>
             <Button
               variant="outline"

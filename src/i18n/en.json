@@ -121,6 +121,7 @@
       "paid_amount_cents": "Paid amount",
       "discount_percent": "Discount percentage",
       "is_paid": "Payment status",
+      "payment_method": "Payment type",
       "is_active": "Active",
       "is_deleted": "Deleted",
       "username": "Username",
@@ -218,6 +219,10 @@
     "inactive": "Inactive",
     "empty": "No members yet",
     "emptyCta": "Add your first member",
+    "tabs": {
+      "member": "Member",
+      "membership": "Membership"
+    },
     "cannotDeleteSubscribed": "A member with membership history cannot be deleted. The member remains available in reports."
   },
   "plans": {
@@ -253,6 +258,12 @@
     "partial": "Partially paid",
     "unpaid": "Unpaid",
     "payment": "Payment",
+    "paymentMethod": "Payment type",
+    "paymentMethods": {
+      "cash": "Cash",
+      "bankTransfer": "Bank transfer",
+      "unset": "Not specified"
+    },
     "paidAmount": "Paid Amount",
     "planPrice": "Plan Price",
     "unpaidAmount": "Un-paid Amount",
@@ -277,7 +288,7 @@
     "subscribeMember": "New Membership",
     "noActiveSubs": "No active memberships",
     "cancelConfirm": "Cancel this membership?",
-    "renewConfirm": "Renew this membership? A new membership will be added and the current one stays active until it expires.",
+    "renewConfirm": "Renew this membership? The new membership starts on {{date}} and the current one stays active until it expires.",
     "renewConfirmExpired": "Renew this membership? This membership is expired, so the new membership starts today.",
     "approveDiscount": "Approve discount",
     "rejectDiscount": "Reject discount",

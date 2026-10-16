@@ -37,6 +37,7 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
         .max(0),
         discount_percent: row.get("discount_percent")?,
         is_paid: row.get("is_paid")?,
+        payment_method: row.get("payment_method")?,
         discount_requested_by_user_id: row.get("discount_requested_by_user_id")?,
         discount_approval_status: row.get("discount_approval_status")?,
         discount_reviewed_by_user_id: row.get("discount_reviewed_by_user_id")?,
@@ -178,6 +179,45 @@ fn clean_notes(notes: Option<String>) -> Option<String> {
         let trimmed = value.trim();
         (!trimmed.is_empty()).then(|| trimmed.to_string())
     })
+}
+
+const PAYMENT_METHODS: [&str; 2] = ["cash", "bank_transfer"];
+
+fn clean_payment_method(value: Option<String>) -> AppResult<Option<String>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if PAYMENT_METHODS.contains(&trimmed) {
+        return Ok(Some(trimmed.to_string()));
+    }
+    Err(AppError::Validation(
+        "Payment type must be cash or bank transfer".into(),
+    ))
+}
+
+fn resolve_payment_method(
+    requested: Option<Option<String>>,
+    current: Option<String>,
+) -> AppResult<Option<String>> {
+    match requested {
+        None => Ok(current),
+        Some(value) => clean_payment_method(value),
+    }
+}
+
+fn renewal_start_date(
+    previous_end: chrono::NaiveDate,
+    today: chrono::NaiveDate,
+) -> chrono::NaiveDate {
+    if previous_end >= today {
+        previous_end + chrono::Duration::days(1)
+    } else {
+        today
+    }
 }
 
 fn membership_created_at(
@@ -362,13 +402,17 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 mod tests {
     use super::{
         apply_discount_review, attach_current_members, can_review_discount_request,
-        discounted_price_cents, edited_membership_status, ensure_membership_can_freeze,
-        ensure_membership_dates_are_valid, ensure_no_current_membership, expired_overdue_count,
-        membership_created_at, membership_creation_status, renew_membership,
-        reviewed_membership_status, row_to_subscription, validate_paid_amount,
+        clean_payment_method, create_membership, discounted_price_cents, edited_membership_status,
+        ensure_membership_can_freeze, ensure_membership_dates_are_valid,
+        ensure_no_current_membership, expired_overdue_count, membership_created_at,
+        membership_creation_status, renew_membership, resolve_payment_method,
+        reviewed_membership_status, row_to_subscription, update_membership, validate_paid_amount,
     };
     use crate::db::migrations;
-    use crate::models::{MemberSnapshot, PlanSnapshot, RenewSubscriptionInput, Subscription};
+    use crate::models::{
+        CreateSubscriptionInput, MemberSnapshot, PlanSnapshot, RenewSubscriptionInput,
+        Subscription, UpdateSubscriptionInput,
+    };
     use crate::session::Sessions;
     use chrono::{Duration, NaiveDate, Utc};
     use rusqlite::Connection;
@@ -767,6 +811,7 @@ mod tests {
             unpaid_amount_cents: 0,
             discount_percent: 0,
             is_paid: true,
+            payment_method: None,
             discount_requested_by_user_id: None,
             discount_approval_status: None,
             discount_reviewed_by_user_id: None,
@@ -833,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn renewal_keeps_previous_membership_active_until_it_expires() {
+    fn renewal_starts_the_day_after_the_previous_membership_ends() {
         let mut conn = setup_conn();
         let sessions = Sessions::new();
         let manager = insert_user(&conn, "manager", "management");
@@ -852,15 +897,332 @@ mod tests {
                 plan_id: None,
                 discount_percent: 0,
                 paid_amount_cents: 5000,
+                payment_method: None,
                 notes: None,
             },
         )
         .unwrap();
 
         assert_eq!(renewed.status, "active");
-        assert_eq!(renewed.start_date, previous_end);
+        assert_eq!(
+            renewed.start_date,
+            (today + Duration::days(26)).format("%Y-%m-%d").to_string()
+        );
         assert_eq!(renewed.renews_subscription_id, Some(previous_id));
         assert_eq!(membership_status(&conn, previous_id), "active");
+    }
+
+    #[test]
+    fn renewal_of_a_membership_that_ends_today_starts_tomorrow() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_id = insert_active_membership(&conn, &today.format("%Y-%m-%d").to_string());
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            renewed.start_date,
+            (today + Duration::days(1)).format("%Y-%m-%d").to_string()
+        );
+    }
+
+    #[test]
+    fn renewal_of_an_expired_membership_starts_today() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_end = (today - Duration::days(10)).format("%Y-%m-%d").to_string();
+        let previous_id = insert_active_membership(&conn, &previous_end);
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(renewed.start_date, today.format("%Y-%m-%d").to_string());
+    }
+
+    #[test]
+    fn renewal_stores_the_payment_type_it_is_given() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_id = insert_active_membership(
+            &conn,
+            &(today + Duration::days(25)).format("%Y-%m-%d").to_string(),
+        );
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: Some("bank_transfer".into()),
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(renewed.payment_method.as_deref(), Some("bank_transfer"));
+    }
+
+    #[test]
+    fn renewal_inherits_the_previous_payment_type_when_none_is_given() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_id = insert_active_membership(
+            &conn,
+            &(today + Duration::days(25)).format("%Y-%m-%d").to_string(),
+        );
+        conn.execute(
+            "UPDATE subscriptions SET payment_method = 'cash' WHERE id = ?1",
+            rusqlite::params![previous_id],
+        )
+        .unwrap();
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(renewed.payment_method.as_deref(), Some("cash"));
+    }
+
+    #[test]
+    fn renewal_rejects_an_unknown_payment_type() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_id = insert_active_membership(
+            &conn,
+            &(today + Duration::days(25)).format("%Y-%m-%d").to_string(),
+        );
+
+        let result = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: Some("cheque".into()),
+                notes: None,
+            },
+        );
+
+        assert!(result.is_err());
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM subscriptions", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn payment_types_are_limited_to_cash_and_bank_transfer() {
+        assert_eq!(clean_payment_method(None).unwrap(), None);
+        assert_eq!(clean_payment_method(Some("   ".into())).unwrap(), None);
+        assert_eq!(
+            clean_payment_method(Some("cash".into()))
+                .unwrap()
+                .as_deref(),
+            Some("cash")
+        );
+        assert_eq!(
+            clean_payment_method(Some("bank_transfer".into()))
+                .unwrap()
+                .as_deref(),
+            Some("bank_transfer")
+        );
+        assert!(clean_payment_method(Some("cheque".into())).is_err());
+    }
+
+    #[test]
+    fn editing_keeps_replaces_or_clears_the_payment_type_deliberately() {
+        assert_eq!(
+            resolve_payment_method(None, Some("cash".into()))
+                .unwrap()
+                .as_deref(),
+            Some("cash")
+        );
+        assert_eq!(
+            resolve_payment_method(Some(Some("bank_transfer".into())), Some("cash".into()))
+                .unwrap()
+                .as_deref(),
+            Some("bank_transfer")
+        );
+        assert_eq!(
+            resolve_payment_method(Some(None), Some("cash".into())).unwrap(),
+            None
+        );
+        assert_eq!(
+            resolve_payment_method(Some(Some(String::new())), None).unwrap(),
+            None
+        );
+        assert!(resolve_payment_method(Some(Some("cheque".into())), None).is_err());
+    }
+
+    #[test]
+    fn membership_rows_without_a_payment_type_stay_unset() {
+        let conn = setup_conn();
+        insert_member_and_plan(&conn);
+        let id = insert_active_membership(&conn, "2027-01-01");
+
+        let subscription = conn
+            .query_row(
+                "SELECT * FROM subscriptions WHERE id = ?1",
+                rusqlite::params![id],
+                row_to_subscription,
+            )
+            .unwrap();
+
+        assert_eq!(subscription.payment_method, None);
+    }
+
+    #[test]
+    fn the_database_rejects_an_unknown_payment_type() {
+        let conn = setup_conn();
+        insert_member_and_plan(&conn);
+
+        let result = conn.execute(
+            "INSERT INTO subscriptions (
+                member_id, plan_id, member_snapshot_json, plan_snapshot_json,
+                start_date, end_date, status, payment_method
+             ) VALUES (1, 1, '{}', '{}', '2026-01-01', '2026-02-01', 'active', 'cheque')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn creating_a_membership_stores_the_payment_type() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+
+        let created = create_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            CreateSubscriptionInput {
+                member_id: 1,
+                plan_id: 1,
+                start_date: Some("2026-01-01".into()),
+                created_at: None,
+                discount_percent: 0,
+                paid_amount_cents: 5000,
+                payment_method: Some("cash".into()),
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(created.payment_method.as_deref(), Some("cash"));
+        assert_eq!(created.start_date, "2026-01-01");
+        assert_eq!(created.final_price_cents, 5000);
+    }
+
+    #[test]
+    fn editing_a_membership_keeps_sets_and_clears_the_payment_type() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let id = insert_active_membership(
+            &conn,
+            &(today + Duration::days(25)).format("%Y-%m-%d").to_string(),
+        );
+        conn.execute(
+            "UPDATE subscriptions SET payment_method = 'cash' WHERE id = ?1",
+            rusqlite::params![id],
+        )
+        .unwrap();
+
+        let edit = |payment_method: Option<Option<String>>| UpdateSubscriptionInput {
+            subscription_id: id,
+            plan_id: 1,
+            start_date: "2026-01-01".into(),
+            end_date: "2026-03-01".into(),
+            discount_percent: 0,
+            paid_amount_cents: 5000,
+            payment_method,
+            notes: None,
+        };
+
+        let kept = update_membership(&mut conn, &sessions, &token, edit(None)).unwrap();
+        assert_eq!(kept.payment_method.as_deref(), Some("cash"));
+
+        let changed = update_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            edit(Some(Some("bank_transfer".into()))),
+        )
+        .unwrap();
+        assert_eq!(changed.payment_method.as_deref(), Some("bank_transfer"));
+
+        let cleared = update_membership(&mut conn, &sessions, &token, edit(Some(None))).unwrap();
+        assert_eq!(cleared.payment_method, None);
     }
 
     #[test]
@@ -884,6 +1246,7 @@ mod tests {
                 plan_id: None,
                 discount_percent: 10,
                 paid_amount_cents: 4500,
+                payment_method: None,
                 notes: None,
             },
         )
@@ -967,21 +1330,21 @@ pub async fn list_member_subscriptions(
     })
 }
 
-#[tauri::command]
-pub async fn create_subscription(
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-    session_token: String,
+fn create_membership(
+    conn: &mut rusqlite::Connection,
+    sessions: &Sessions,
+    session_token: &str,
     input: CreateSubscriptionInput,
 ) -> AppResult<Subscription> {
-    db.with_conn(|conn| {
+    {
         let transaction = conn.transaction()?;
-        let actor_id = require_user(&transaction, &sessions, &session_token)?;
+        let actor_id = require_user(&transaction, sessions, session_token)?;
         let access_level = user_access_level(&transaction, actor_id)?;
         let member = member_snapshot(&transaction, input.member_id)?;
         let plan = plan_snapshot(&transaction, input.plan_id, true)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
+        let payment_method = clean_payment_method(input.payment_method)?;
         let now = chrono::Utc::now();
         let today = now.format("%Y-%m-%d").to_string();
         let created_at = membership_created_at(input.created_at, now)?;
@@ -1000,8 +1363,9 @@ pub async fn create_subscription(
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
                 start_date, end_date, status, final_price_cents, paid_amount_cents,
                 discount_percent, is_paid,
-                discount_requested_by_user_id, discount_approval_status, notes, created_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                discount_requested_by_user_id, discount_approval_status, notes, created_at,
+                payment_method
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -1018,6 +1382,7 @@ pub async fn create_subscription(
                 discount_requester.map(|_| "pending"),
                 clean_notes(input.notes),
                 created_at,
+                payment_method,
             ],
         )?;
         let new_id = transaction.last_insert_rowid();
@@ -1034,7 +1399,17 @@ pub async fn create_subscription(
         )?;
         transaction.commit()?;
         Ok(subscription)
-    })
+    }
+}
+
+#[tauri::command]
+pub async fn create_subscription(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+    input: CreateSubscriptionInput,
+) -> AppResult<Subscription> {
+    db.with_conn(|conn| create_membership(conn, &sessions, &session_token, input))
 }
 
 fn renew_membership(
@@ -1053,6 +1428,10 @@ fn renew_membership(
         let plan = plan_snapshot(&transaction, plan_id, true)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
+        let payment_method = match clean_payment_method(input.payment_method)? {
+            Some(method) => Some(method),
+            None => before.payment_method.clone(),
+        };
         let status = membership_creation_status(&access_level, input.discount_percent);
         let discount_requester = (status == "pending").then_some(actor_id);
         let today = chrono::Utc::now().date_naive();
@@ -1064,7 +1443,7 @@ fn renew_membership(
             &today.format("%Y-%m-%d").to_string(),
         )?;
         let previous_end = parse_date(&before.end_date, "membership end date")?;
-        let start_date = previous_end.max(today);
+        let start_date = renewal_start_date(previous_end, today);
         let end_date = compute_end_date(start_date, plan.duration_days);
         let member_json = serde_json::to_string(&member)?;
         let plan_json = serde_json::to_string(&plan)?;
@@ -1073,8 +1452,9 @@ fn renew_membership(
                 member_id, plan_id, member_snapshot_json, plan_snapshot_json,
                 start_date, end_date, status, final_price_cents, paid_amount_cents,
                 discount_percent, is_paid,
-                discount_requested_by_user_id, discount_approval_status, renews_subscription_id, notes
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                discount_requested_by_user_id, discount_approval_status, renews_subscription_id, notes,
+                payment_method
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             rusqlite::params![
                 before.member_id,
                 plan_id,
@@ -1091,6 +1471,7 @@ fn renew_membership(
                 discount_requester.map(|_| "pending"),
                 input.subscription_id,
                 clean_notes(input.notes),
+                payment_method,
             ],
         )?;
         let new_id = transaction.last_insert_rowid();
@@ -1223,16 +1604,15 @@ pub async fn unfreeze_subscription(
     })
 }
 
-#[tauri::command]
-pub async fn update_subscription(
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-    session_token: String,
+fn update_membership(
+    conn: &mut rusqlite::Connection,
+    sessions: &Sessions,
+    session_token: &str,
     input: UpdateSubscriptionInput,
 ) -> AppResult<Subscription> {
-    db.with_conn(|conn| {
+    {
         let transaction = conn.transaction()?;
-        let actor_id = require_user(&transaction, &sessions, &session_token)?;
+        let actor_id = require_user(&transaction, sessions, session_token)?;
         let access_level = user_access_level(&transaction, actor_id)?;
         let before = subscription_by_id(&transaction, input.subscription_id)?;
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
@@ -1246,6 +1626,8 @@ pub async fn update_subscription(
         ensure_membership_dates_are_valid(&input.start_date, &input.end_date)?;
         let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
+        let payment_method =
+            resolve_payment_method(input.payment_method, before.payment_method.clone())?;
         let discount_changed = input.discount_percent != before.discount_percent;
         let status = edited_membership_status(
             &before.status,
@@ -1313,8 +1695,9 @@ pub async fn update_subscription(
                     ELSE discount_reviewed_at
                 END,
                 notes = ?14,
+                payment_method = ?15,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?15",
+             WHERE id = ?16",
             rusqlite::params![
                 input.plan_id,
                 plan_json,
@@ -1330,6 +1713,7 @@ pub async fn update_subscription(
                 discount_reviewer,
                 management_approved_discount,
                 clean_notes(input.notes),
+                payment_method,
                 input.subscription_id,
             ],
         )?;
@@ -1347,7 +1731,17 @@ pub async fn update_subscription(
         )?;
         transaction.commit()?;
         Ok(subscription)
-    })
+    }
+}
+
+#[tauri::command]
+pub async fn update_subscription(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+    input: UpdateSubscriptionInput,
+) -> AppResult<Subscription> {
+    db.with_conn(|conn| update_membership(conn, &sessions, &session_token, input))
 }
 
 fn apply_discount_review(

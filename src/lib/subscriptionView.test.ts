@@ -14,6 +14,8 @@ import {
   membershipMember,
   membershipPlanPriceCents,
   renewConfirmationKey,
+  renewalStartDate,
+  renewalStartsTheNextDay,
   showDiscount,
 } from "./subscriptionView";
 
@@ -56,6 +58,7 @@ const subscription = (
   unpaid_amount_cents: 0,
   discount_percent: 0,
   is_paid: true,
+  payment_method: null,
   discount_requested_by_user_id: null,
   discount_approval_status: null,
   discount_reviewed_by_user_id: null,
@@ -102,7 +105,7 @@ describe("subscription operational views", () => {
     expect(groups.expired).toEqual([]);
   });
 
-  it("collects partially paid memberships across every status", () => {
+  it("collects partially paid memberships across every status except cancelled", () => {
     const partialActive = {
       ...subscription(1, 1, "active", "2026-12-01"),
       paid_amount_cents: 2000,
@@ -119,13 +122,71 @@ describe("subscription operational views", () => {
       is_paid: false,
     };
     const paidInFull = subscription(4, 4, "active", "2026-12-01");
+    const cancelled = {
+      ...subscription(5, 5, "cancelled", "2026-12-01"),
+      paid_amount_cents: 1000,
+      is_paid: false,
+    };
+    const rejected = {
+      ...subscription(6, 6, "rejected", "2026-12-01"),
+      paid_amount_cents: 1000,
+      is_paid: false,
+    };
 
     const groups = groupOperationalSubscriptions(
-      [partialActive, partialOld, unpaid, paidInFull],
+      [partialActive, partialOld, unpaid, paidInFull, cancelled, rejected],
       now,
     );
 
-    expect(groups.partial.map(({ id }) => id)).toEqual([1, 2]);
+    expect(groups.partial.map(({ id }) => id)).toEqual([1, 2, 6]);
+  });
+
+  it("drops a cancelled membership from every operational bucket", () => {
+    const cancelled = {
+      ...subscription(1, 1, "cancelled", "2026-12-01"),
+      paid_amount_cents: 1000,
+      is_paid: false,
+    };
+
+    const groups = groupOperationalSubscriptions([cancelled], now);
+
+    expect(groups.active).toEqual([]);
+    expect(groups.expiring).toEqual([]);
+    expect(groups.expired).toEqual([]);
+    expect(groups.frozen).toEqual([]);
+    expect(groups.partial).toEqual([]);
+  });
+});
+
+describe("renewal start dates", () => {
+  const now = new Date("2026-10-16T09:30:00Z");
+
+  it("starts the day after the last day of a membership that is still current", () => {
+    expect(
+      renewalStartDate(subscription(1, 1, "active", "2026-12-01"), now),
+    ).toBe("2026-12-02");
+  });
+
+  it("starts tomorrow when the membership's last day is today", () => {
+    expect(
+      renewalStartDate(subscription(1, 1, "active", "2026-10-16"), now),
+    ).toBe("2026-10-17");
+  });
+
+  it("starts today when the membership already expired", () => {
+    expect(
+      renewalStartDate(subscription(1, 1, "active", "2026-10-01"), now),
+    ).toBe("2026-10-16");
+    expect(
+      renewalStartsTheNextDay(subscription(1, 1, "active", "2026-10-01"), now),
+    ).toBe(false);
+  });
+
+  it("never reuses the previous membership's last day", () => {
+    const current = subscription(1, 1, "active", "2027-01-31");
+
+    expect(renewalStartsTheNextDay(current, now)).toBe(true);
+    expect(renewalStartDate(current, now) > current.end_date).toBe(true);
   });
 });
 
