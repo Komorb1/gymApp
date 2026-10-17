@@ -112,7 +112,7 @@ jobs:
             - Long membership notes are clipped to their column and shown in full when you hover them
             - Tables that were cutting off wide content scroll inside their own box, so the page itself never moves sideways
             - The memberships page search box sits directly beside the New Membership button, matching the members page, and the page no longer repeats its own title
-            - "Balance Amount" is now labelled "Un-paid Amount" in both membership tables and in the new membership and edit membership windows
+            - Column headings read "Un-Paid Amount" and "Payment Type" in both membership tables, the member page and the membership windows
             - Memberships can now be backed up and restored: a manual button, plus an automatic backup once a day at a time you choose
             - You pick where the backups are kept, so a USB drive or a OneDrive/Drive folder gives you an off-machine copy; a restore can also be taken from any folder you browse to
             - Each backup keeps the database, the member photos and an information file, and the page lists every backup with its date, size and contents
@@ -123,11 +123,14 @@ jobs:
             - The memberships page has a search box that finds a membership by id, plan, start date, end date, created date, status or payment status, and it narrows the rows the status tabs list, so cancelled or replaced memberships no longer show up in results
             - Renewing an already expired membership now says the new membership starts today
             - Arabic text no longer carries diacritics the desk keyboard cannot type, so labels like "مجمد" can be searched and matched
-            - Every membership now records how it was paid: cash or bank transfer. The new membership window, the renewal window and the edit membership window all ask for it, and both membership tables show it in its own column. Memberships created before this release show a dash until someone sets it
+            - Every membership records how it was paid, cash or bank transfer. The new membership window, the renewal window and the edit membership window each offer those two choices, and both membership tables show the value in its own column. Memberships created before this was added show a dash until someone sets it
+            - A membership can be discounted by a percentage or by a flat amount: pick the type, enter the value, and the price and remaining balance update as you type. Use one or the other, never both, and a flat discount is capped at the plan price so a balance can never go below zero. A discount from a staff account still waits for management approval, and management applies its own directly. The badge beside the status names the discount you gave, whether that is 10% or 50.00 AED
+            - Cancelling a membership now asks for a reason and will not confirm until one is written. The reason is kept with the membership, shows in the activity log, and appears when you hover the Cancelled badge
+            - A member's phone number is entered as the fixed prefix +9715 followed by 8 digits, so every new or changed number is a full UAE mobile number. Members saved earlier with a local-format number keep working and show a note until someone re-enters the 8 digits
+            - Created dates show the time of day as well as the date: memberships in both membership tables, the members list, and the member's own page. On Windows the time always carries an AM or PM marker instead of a 24-hour clock
             - Renewing a membership that is still running no longer overlaps the day it ends: the new membership starts the day after the old one's last day, and the renewal window tells you that start date before you confirm. Renewing an expired membership still starts today
             - Cancelling a membership that was only part paid no longer leaves it listed under Partially paid; the amount paid stays on the membership's own history
             - The member account page tabs are now called Member and Membership instead of the plural wording
-            - A membership's created column now shows the time of day as well as the date, in both membership tables
           releaseDraft: false
           prerelease: true
           args: --target x86_64-pc-windows-msvc
