@@ -16,7 +16,7 @@ import { RowActions } from "@/components/table/RowActions";
 import { useMembers, useDeleteMember } from "@/hooks/useMembers";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useNavStore } from "@/stores/nav";
-import { memberPhotoUrl, formatDate, fullName } from "@/lib/format";
+import { memberPhotoUrl, formatDateTime, fullName } from "@/lib/format";
 import type { Member } from "@/lib/ipc";
 import { MemberForm } from "./MemberForm";
 import { useAuthStore } from "@/stores/auth";
@@ -132,7 +132,7 @@ export function MembersPage() {
                   className="border-t border-border hover:bg-muted/30 cursor-pointer transition-colors"
                 >
                   <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
-                    {formatDate(m.created_at)}
+                    {formatDateTime(m.created_at)}
                   </td>
                   <td className="p-3 font-cairo text-muted-foreground whitespace-nowrap">
                     #{m.id}

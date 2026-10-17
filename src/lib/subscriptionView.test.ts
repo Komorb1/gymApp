@@ -6,17 +6,18 @@ import {
   EXPIRED_WINDOW_DAYS,
   canReviewDiscount,
   derivedMembershipStatus,
+  discountLabel,
   discountedPriceCents,
   filterMemberReports,
   filterMemberships,
   filterReportSubscriptions,
   groupOperationalSubscriptions,
+  hasDiscount,
   membershipMember,
   membershipPlanPriceCents,
   renewConfirmationKey,
   renewalStartDate,
   renewalStartsTheNextDay,
-  showDiscount,
 } from "./subscriptionView";
 
 const subscription = (
@@ -57,6 +58,7 @@ const subscription = (
   paid_amount_cents: 5000,
   unpaid_amount_cents: 0,
   discount_percent: 0,
+  discount_amount_cents: 0,
   is_paid: true,
   payment_method: null,
   discount_requested_by_user_id: null,
@@ -64,6 +66,7 @@ const subscription = (
   discount_reviewed_by_user_id: null,
   discount_reviewed_at: null,
   renews_subscription_id: null,
+  cancellation_reason: null,
   notes: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
@@ -232,9 +235,27 @@ describe("membership editing prices", () => {
 });
 
 describe("membership presentation", () => {
-  it("shows discount information only for positive discounts", () => {
-    expect(showDiscount(0)).toBe(false);
-    expect(showDiscount(15)).toBe(true);
+  it("shows the discount that is actually stored, as a percentage or an amount", () => {
+    const none = subscription(1, 1, "active", "2026-12-01");
+    const percent = { ...none, discount_percent: 15 };
+    const flat = {
+      ...none,
+      discount_amount_cents: 5_000,
+    };
+
+    expect(hasDiscount(none)).toBe(false);
+    expect(discountLabel(none)).toBe("");
+    expect(hasDiscount(percent)).toBe(true);
+    expect(discountLabel(percent)).toBe("15%");
+    expect(hasDiscount(flat)).toBe(true);
+    expect(discountLabel(flat)).toMatch(/50\.00/);
+  });
+
+  it("keeps the final price inside the plan price for either discount", () => {
+    expect(discountedPriceCents(5_000, 10)).toBe(4_500);
+    expect(discountedPriceCents(5_000, 0, 1_500)).toBe(3_500);
+    expect(discountedPriceCents(5_000, 0, 9_000)).toBe(0);
+    expect(discountedPriceCents(5_000, 100, 0)).toBe(0);
   });
 
   it("shows discount review actions only for operationally pending requests", () => {

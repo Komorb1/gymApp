@@ -24,6 +24,8 @@ const hiddenFields = new Set([
   "renews_subscription_id",
 ]);
 
+const zeroHiddenFields = new Set(["discount_percent", "discount_amount_cents"]);
+
 function parseDetails(details: string | null): Record<string, unknown> | null {
   if (!details) return null;
   try {
@@ -113,7 +115,7 @@ export function activityChanges(
     )
     .filter(
       (field) =>
-        field !== "discount_percent" ||
+        !zeroHiddenFields.has(field) ||
         Number(before.get(field) ?? 0) > 0 ||
         Number(after.get(field) ?? 0) > 0,
     )

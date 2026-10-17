@@ -18,7 +18,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   memberSchema,
-  digitsOnly,
+  phoneDigits,
+  fullPhoneNumber,
+  storedPhoneDigits,
+  isUaeMobileNumber,
+  PHONE_PREFIX,
   type MemberFormData,
 } from "@/lib/validation";
 import { memberPhotoUrl } from "@/lib/format";
@@ -51,7 +55,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
     reset,
     formState: { errors },
   } = useForm<MemberFormData>({
-    resolver: zodResolver(memberSchema),
+    resolver: zodResolver(memberSchema(!isEdit)),
   });
 
   useEffect(() => {
@@ -61,7 +65,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
         middle_name: member.middle_name ?? "",
         last_name: member.last_name,
         id_number: member.id_number ?? "",
-        phone: member.phone,
+        phone: storedPhoneDigits(member.phone) ?? "",
         email: member.email ?? "",
         birth_date: member.birth_date ?? "",
         notes: member.notes ?? "",
@@ -83,6 +87,8 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   const photoPath = member?.photo_path ?? null;
   const idNumberField = register("id_number");
   const phoneField = register("phone");
+  const legacyPhone =
+    member && !isUaeMobileNumber(member.phone) ? member.phone : null;
   const today = new Date().toISOString().slice(0, 10);
 
   const pickPhoto = async () => {
@@ -103,6 +109,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
   const onSubmit = async (data: MemberFormData) => {
     setSaveError("");
     try {
+      const phone = data.phone ? fullPhoneNumber(data.phone) : undefined;
       let savedMember: Member;
 
       if (isEdit && member) {
@@ -112,7 +119,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
           middle_name: data.middle_name || null,
           last_name: data.last_name,
           id_number: data.id_number || null,
-          phone: data.phone,
+          ...(phone ? { phone } : {}),
           email: data.email || null,
           birth_date: data.birth_date || null,
           notes: data.notes || null,
@@ -123,7 +130,7 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
           middle_name: data.middle_name || null,
           last_name: data.last_name,
           id_number: data.id_number || null,
-          phone: data.phone,
+          phone: phone ?? "",
           email: data.email || null,
           birth_date: data.birth_date || null,
           notes: data.notes || null,
@@ -211,22 +218,33 @@ export function MemberForm({ member, onClose }: MemberFormProps) {
 
           <div className="space-y-2">
             <Label className="font-cairo">{t("members.phone")}</Label>
-            <Input
-              {...phoneField}
-              type="tel"
-              inputMode="numeric"
-              onChange={(event) => {
-                event.target.value = digitsOnly(event.target.value);
-                phoneField.onChange(event);
-              }}
-              className="font-cairo"
-            />
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute start-3 text-sm text-muted-foreground font-cairo">
+                {PHONE_PREFIX}
+              </span>
+              <Input
+                {...phoneField}
+                type="tel"
+                inputMode="numeric"
+                maxLength={8}
+                onChange={(event) => {
+                  event.target.value = phoneDigits(event.target.value);
+                  phoneField.onChange(event);
+                }}
+                className="ps-16 font-cairo"
+              />
+            </div>
             <p className="text-xs text-muted-foreground font-cairo">
-              {t("members.phoneIsWhatsapp")} {t("members.phoneDigitsOnly")}
+              {t("members.phoneIsWhatsapp")} {t("members.phoneFormat")}
             </p>
+            {legacyPhone && !errors.phone && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-cairo">
+                {t("members.phoneLegacyKept", { phone: legacyPhone })}
+              </p>
+            )}
             {errors.phone && (
               <p className="text-xs text-destructive font-cairo">
-                {errors.phone.message}
+                {t("members.phoneFormat")}
               </p>
             )}
           </div>

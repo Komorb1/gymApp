@@ -60,14 +60,17 @@ fn validate_member(first_name: &str, phone: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn validate_phone_digits(phone: &str) -> AppResult<()> {
-    if !phone
-        .trim()
-        .chars()
-        .all(|character| character.is_ascii_digit())
-    {
+const PHONE_PREFIX: &str = "+9715";
+const PHONE_DIGIT_COUNT: usize = 8;
+
+fn validate_phone_format(phone: &str) -> AppResult<()> {
+    let digits = phone.trim().strip_prefix(PHONE_PREFIX);
+    let is_mobile = digits.is_some_and(|rest| {
+        rest.len() == PHONE_DIGIT_COUNT && rest.chars().all(|c| c.is_ascii_digit())
+    });
+    if !is_mobile {
         return Err(AppError::Validation(
-            "Phone number must contain digits only".into(),
+            "Phone number must be +9715 followed by 8 digits".into(),
         ));
     }
     Ok(())
@@ -227,7 +230,7 @@ pub async fn create_member(
     input: CreateMemberInput,
 ) -> AppResult<Member> {
     validate_member(&input.first_name, &input.phone)?;
-    validate_phone_digits(&input.phone)?;
+    validate_phone_format(&input.phone)?;
     validate_member_details(input.id_number.as_deref(), input.birth_date.as_deref())?;
     db.with_conn(|conn| {
         let transaction = conn.transaction()?;
@@ -288,7 +291,7 @@ pub async fn update_member(
         validate_member(&first_name, &phone)?;
         let phone_changed = phone.trim() != before.phone.trim();
         if phone_changed {
-            validate_phone_digits(&phone)?;
+            validate_phone_format(&phone)?;
             ensure_phone_is_unique(&transaction, &phone, Some(input.id))?;
         }
         let middle_name = input.middle_name.unwrap_or(before.middle_name.clone());
@@ -568,16 +571,21 @@ pub async fn list_member_reports(
 mod tests {
     use super::{
         ensure_member_has_no_subscriptions, ensure_phone_is_unique, validate_member,
-        validate_member_details, validate_phone_digits,
+        validate_member_details, validate_phone_format,
     };
     use crate::db::migrations;
     use rusqlite::Connection;
 
     #[test]
-    fn member_phone_requires_digits_only() {
-        assert!(validate_phone_digits("971555000000").is_ok());
-        assert!(validate_phone_digits("+971 55 500 0000").is_err());
-        assert!(validate_phone_digits("055-500-0000").is_err());
+    fn member_phone_requires_the_uae_mobile_format() {
+        assert!(validate_phone_format("+971555000000").is_ok());
+        assert!(validate_phone_format("+971551234567").is_ok());
+        assert!(validate_phone_format("0551234567").is_err());
+        assert!(validate_phone_format("+971 55 123 4567").is_err());
+        assert!(validate_phone_format("+97155123456").is_err());
+        assert!(validate_phone_format("+9715512345678").is_err());
+        assert!(validate_phone_format("+97155123456a").is_err());
+        assert!(validate_phone_format("").is_err());
     }
 
     #[test]

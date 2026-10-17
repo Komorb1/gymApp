@@ -115,8 +115,13 @@ export function useCancelSubscription() {
   const sessionToken = useAuthStore((state) => state.sessionToken ?? "");
   const invalidate = useInvalidateMemberships();
   return useMutation({
-    mutationFn: (subscriptionId: number) =>
-      cancelSubscription(sessionToken, subscriptionId),
+    mutationFn: ({
+      subscriptionId,
+      reason,
+    }: {
+      subscriptionId: number;
+      reason: string;
+    }) => cancelSubscription(sessionToken, subscriptionId, reason),
     onSuccess: invalidate,
   });
 }

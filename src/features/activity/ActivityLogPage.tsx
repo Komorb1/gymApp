@@ -107,7 +107,8 @@ export function ActivityLogPage() {
       (field === "price_cents" ||
         field === "final_price_cents" ||
         field === "paid_amount_cents" ||
-        field === "unpaid_amount_cents")
+        field === "unpaid_amount_cents" ||
+        field === "discount_amount_cents")
     ) {
       return formatMoney(value);
     }

@@ -40,9 +40,10 @@ describe("payment method labels", () => {
           locale.subscriptions.paymentMethods[method.key]?.trim().length,
         ).toBeGreaterThan(0);
       }
-      expect(
-        locale.subscriptions.paymentMethods.unset.trim().length,
-      ).toBeGreaterThan(0);
+      expect(Object.keys(locale.subscriptions.paymentMethods).sort()).toEqual([
+        "bankTransfer",
+        "cash",
+      ]);
     }
   });
 });

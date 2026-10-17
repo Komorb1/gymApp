@@ -5,25 +5,19 @@ import { PAYMENT_METHODS, paymentMethodLabelKey } from "@/lib/paymentMethod";
 
 type PaymentMethodPickerProps = {
   value: PaymentMethod | null;
-  onChange: (value: PaymentMethod | null) => void;
-  allowUnset?: boolean;
+  onChange: (value: PaymentMethod) => void;
 };
 
 export function PaymentMethodPicker({
   value,
   onChange,
-  allowUnset = false,
 }: PaymentMethodPickerProps) {
   const { t } = useTranslation();
-  const options: { value: PaymentMethod | null; labelKey: string }[] = [
-    ...PAYMENT_METHODS.map((method) => ({
+  const options: { value: PaymentMethod; labelKey: string }[] =
+    PAYMENT_METHODS.map((method) => ({
       value: method.value,
       labelKey: `subscriptions.paymentMethods.${method.key}`,
-    })),
-    ...(allowUnset
-      ? [{ value: null, labelKey: "subscriptions.paymentMethods.unset" }]
-      : []),
-  ];
+    }));
 
   return (
     <div className="flex flex-wrap gap-2">

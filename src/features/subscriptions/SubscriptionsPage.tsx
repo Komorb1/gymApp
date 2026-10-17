@@ -43,13 +43,14 @@ import { useAuthStore } from "@/stores/auth";
 import {
   canReviewDiscount,
   derivedMembershipStatus,
+  discountLabel,
   filterMemberships,
   groupOperationalSubscriptions,
+  hasDiscount,
   membershipMember,
   paymentStatusKey,
   renewConfirmationKey,
   renewalStartDate,
-  showDiscount,
 } from "@/lib/subscriptionView";
 
 export function SubscriptionsPage() {
@@ -67,6 +68,7 @@ export function SubscriptionsPage() {
   const [subscribeMember, setSubscribeMember] = useState<Member | null>(null);
   const [freezeTarget, setFreezeTarget] = useState<Subscription | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
   const [renewPaymentMethod, setRenewPaymentMethod] =
     useState<PaymentMethod | null>("cash");
@@ -108,15 +110,24 @@ export function SubscriptionsPage() {
       subscription_id: s.id,
       plan_id: s.plan_id,
       discount_percent: s.discount_percent,
+      discount_amount_cents: s.discount_amount_cents,
       paid_amount_cents: s.paid_amount_cents,
       payment_method: renewPaymentMethod,
       notes: null,
     });
   };
 
+  const openCancel = (subscription: Subscription) => {
+    setCancelReason("");
+    setCancelTarget(subscription);
+  };
+
   const confirmCancel = () => {
-    if (cancelTarget) {
-      cancelMut.mutate(cancelTarget.id);
+    if (cancelTarget && cancelReason.trim()) {
+      cancelMut.mutate({
+        subscriptionId: cancelTarget.id,
+        reason: cancelReason.trim(),
+      });
       setCancelTarget(null);
     }
   };
@@ -203,14 +214,15 @@ export function SubscriptionsPage() {
                     : "destructive"
               }
               className="font-cairo whitespace-nowrap"
+              title={s.cancellation_reason ?? undefined}
             >
               {isExpired(s.end_date) && s.status === "active"
                 ? t("subscriptions.expired")
                 : t(`subscriptions.${s.status}`)}
             </Badge>
-            {showDiscount(s.discount_percent) && (
+            {hasDiscount(s) && (
               <Badge variant="default" className="font-cairo whitespace-nowrap">
-                {t("subscriptions.discount")} {s.discount_percent}%
+                {t("subscriptions.discount")} {discountLabel(s)}
               </Badge>
             )}
           </div>
@@ -286,7 +298,7 @@ export function SubscriptionsPage() {
                             label: t("subscriptions.cancel"),
                             variant: "ghost" as const,
                             destructive: true,
-                            onSelect: () => setCancelTarget(s),
+                            onSelect: () => openCancel(s),
                           },
                         ]
                       : []),
@@ -476,6 +488,23 @@ export function SubscriptionsPage() {
               {cancelTarget.plan_snapshot.name}
             </p>
           )}
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.cancelReason")}
+            </Label>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              placeholder={t("subscriptions.cancelReasonPlaceholder")}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {!cancelReason.trim() && (
+              <p className="text-xs text-muted-foreground font-cairo">
+                {t("subscriptions.cancelReasonRequired")}
+              </p>
+            )}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -487,7 +516,7 @@ export function SubscriptionsPage() {
             <Button
               variant="destructive"
               onClick={confirmCancel}
-              disabled={cancelMut.isPending}
+              disabled={cancelMut.isPending || !cancelReason.trim()}
               className="font-cairo"
             >
               {t("subscriptions.cancel")}

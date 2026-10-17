@@ -152,6 +152,7 @@ export type Subscription = {
   paid_amount_cents: number;
   unpaid_amount_cents: number;
   discount_percent: number;
+  discount_amount_cents: number;
   is_paid: boolean;
   payment_method: PaymentMethod | null;
   discount_requested_by_user_id: number | null;
@@ -159,6 +160,7 @@ export type Subscription = {
   discount_reviewed_by_user_id: number | null;
   discount_reviewed_at: string | null;
   renews_subscription_id: number | null;
+  cancellation_reason: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -170,6 +172,7 @@ export type CreateSubscriptionInput = {
   start_date?: string | null;
   created_at?: string | null;
   discount_percent: number;
+  discount_amount_cents?: number | null;
   paid_amount_cents: number;
   payment_method?: PaymentMethod | null;
   notes?: string | null;
@@ -179,6 +182,7 @@ export type RenewSubscriptionInput = {
   subscription_id: number;
   plan_id?: number | null;
   discount_percent: number;
+  discount_amount_cents?: number | null;
   paid_amount_cents: number;
   payment_method?: PaymentMethod | null;
   notes?: string | null;
@@ -190,6 +194,7 @@ export type UpdateSubscriptionInput = {
   start_date: string;
   end_date: string;
   discount_percent: number;
+  discount_amount_cents?: number | null;
   paid_amount_cents: number;
   payment_method?: PaymentMethod | null;
   notes?: string | null;
@@ -481,10 +486,12 @@ export function getDashboardStats(
 export function cancelSubscription(
   sessionToken: string,
   subscriptionId: number,
+  reason: string,
 ): Promise<Subscription> {
   return invoke<Subscription>("cancel_subscription", {
     sessionToken,
     subscriptionId,
+    reason,
   });
 }
 

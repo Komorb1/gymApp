@@ -16,7 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateSubscription } from "@/hooks/useSubscriptions";
 import { usePlans } from "@/hooks/usePlans";
-import { formatMoney, fullName, isExpired, currencySymbol } from "@/lib/format";
+import {
+  formatMoney,
+  fullName,
+  isExpired,
+  currencySymbol,
+  priceToCents,
+} from "@/lib/format";
 import {
   discountedPriceCents,
   membershipMember,
@@ -24,6 +30,7 @@ import {
 } from "@/lib/subscriptionView";
 import type { PaymentMethod, Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
+import { DiscountEditor, type DiscountKind } from "./DiscountEditor";
 import { PaymentMethodPicker } from "./PaymentMethodField";
 
 interface EditMembershipDialogProps {
@@ -42,8 +49,19 @@ export function EditMembershipDialog({
   const [planId, setPlanId] = useState(String(subscription.plan_id));
   const [startDate, setStartDate] = useState(subscription.start_date);
   const [endDate, setEndDate] = useState(subscription.end_date);
+  const [discountKind, setDiscountKind] = useState<DiscountKind>(
+    subscription.discount_percent > 0 ||
+      subscription.discount_amount_cents === 0
+      ? "percent"
+      : "amount",
+  );
   const [discountPercent, setDiscountPercent] = useState(
     String(subscription.discount_percent),
+  );
+  const [discountAmount, setDiscountAmount] = useState(
+    subscription.discount_amount_cents > 0
+      ? (subscription.discount_amount_cents / 100).toFixed(2)
+      : "",
   );
   const [paidAmount, setPaidAmount] = useState(
     (subscription.paid_amount_cents / 100).toFixed(2),
@@ -59,9 +77,18 @@ export function EditMembershipDialog({
     plans,
     Number(planId),
   );
+  const discountPercentValue =
+    discountKind === "percent" ? Number(discountPercent || 0) : 0;
+  const discountAmountCents =
+    discountKind === "amount" ? priceToCents(discountAmount || "0") : 0;
+  const discountIsSet = discountPercentValue > 0 || discountAmountCents > 0;
+  const discountChanged =
+    discountPercentValue !== subscription.discount_percent ||
+    discountAmountCents !== subscription.discount_amount_cents;
   const finalPriceCents = discountedPriceCents(
     planPriceCents,
-    Number(discountPercent || 0),
+    discountPercentValue,
+    discountAmountCents,
   );
   const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
   const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
@@ -75,7 +102,8 @@ export function EditMembershipDialog({
         plan_id: Number(planId),
         start_date: startDate,
         end_date: endDate,
-        discount_percent: Number(discountPercent),
+        discount_percent: discountPercentValue,
+        discount_amount_cents: discountAmountCents,
         paid_amount_cents: paidAmountCents,
         payment_method: paymentMethod,
         notes: notes || null,
@@ -192,31 +220,24 @@ export function EditMembershipDialog({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="font-cairo">
-              {t("subscriptions.discountPercent")}
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              step="1"
-              value={discountPercent}
-              onChange={(event) => setDiscountPercent(event.target.value)}
-              className="font-cairo"
-            />
-            <p className="text-sm text-muted-foreground font-cairo">
-              {t("subscriptions.finalPrice")}: {formatMoney(finalPriceCents)}
-            </p>
-            {isStaff &&
-              Number(discountPercent) > 0 &&
-              (Number(discountPercent) !== subscription.discount_percent ||
-                subscription.discount_approval_status === "pending") && (
-                <p className="text-sm text-amber-600 dark:text-amber-400 font-cairo">
-                  {t("subscriptions.discountPendingNotice")}
-                </p>
-              )}
-          </div>
+          <DiscountEditor
+            kind={discountKind}
+            onKindChange={setDiscountKind}
+            percent={discountPercent}
+            onPercentChange={setDiscountPercent}
+            amount={discountAmount}
+            onAmountChange={setDiscountAmount}
+            planPriceCents={planPriceCents}
+            finalPriceCents={finalPriceCents}
+          />
+          {isStaff &&
+            discountIsSet &&
+            (discountChanged ||
+              subscription.discount_approval_status === "pending") && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-cairo">
+                {t("subscriptions.discountPendingNotice")}
+              </p>
+            )}
           <div className="space-y-2">
             <Label className="font-cairo">
               {t("subscriptions.paidAmount")}
@@ -247,7 +268,6 @@ export function EditMembershipDialog({
             <PaymentMethodPicker
               value={paymentMethod}
               onChange={setPaymentMethod}
-              allowUnset
             />
           </div>
           <div className="space-y-2">

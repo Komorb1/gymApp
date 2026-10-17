@@ -46,11 +46,12 @@ import type { PaymentMethod, Subscription } from "@/lib/ipc";
 import { useAuthStore } from "@/stores/auth";
 import {
   derivedMembershipStatus,
+  discountLabel,
   filterMemberships,
+  hasDiscount,
   paymentStatusKey,
   renewConfirmationKey,
   renewalStartDate,
-  showDiscount,
 } from "@/lib/subscriptionView";
 
 const flagLabels: Record<string, string> = {
@@ -87,6 +88,7 @@ export function MemberProfile() {
   const [subSearch, setSubSearch] = useState("");
   const debouncedSubSearch = useDebouncedValue(subSearch, 300);
   const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [renewTarget, setRenewTarget] = useState<Subscription | null>(null);
   const [renewPaymentMethod, setRenewPaymentMethod] =
     useState<PaymentMethod | null>("cash");
@@ -134,9 +136,17 @@ export function MemberProfile() {
       !isExpired(subscription.end_date),
   );
 
+  const openCancel = (subscription: Subscription) => {
+    setCancelReason("");
+    setCancelTarget(subscription);
+  };
+
   const confirmCancel = () => {
-    if (cancelTarget) {
-      cancelMut.mutate(cancelTarget.id);
+    if (cancelTarget && cancelReason.trim()) {
+      cancelMut.mutate({
+        subscriptionId: cancelTarget.id,
+        reason: cancelReason.trim(),
+      });
       setCancelTarget(null);
     }
   };
@@ -152,6 +162,7 @@ export function MemberProfile() {
         subscription_id: renewTarget.id,
         plan_id: renewTarget.plan_id,
         discount_percent: renewTarget.discount_percent,
+        discount_amount_cents: renewTarget.discount_amount_cents,
         paid_amount_cents: renewTarget.paid_amount_cents,
         payment_method: renewPaymentMethod,
         notes: null,
@@ -198,7 +209,7 @@ export function MemberProfile() {
                 {fullName(member)}
               </h2>
               <p className="text-sm text-muted-foreground font-cairo">
-                {t("members.title")} — {formatDate(member.created_at)}
+                {t("members.title")} — {formatDateTime(member.created_at)}
               </p>
               {flags.length > 0 && (
                 <div className="flex gap-1 mt-2">
@@ -314,7 +325,9 @@ export function MemberProfile() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-cairo">{formatDate(member.created_at)}</p>
+                <p className="font-cairo">
+                  {formatDateTime(member.created_at)}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -450,19 +463,20 @@ export function MemberProfile() {
                                         : "destructive"
                                   }
                                   className="font-cairo whitespace-nowrap"
+                                  title={s.cancellation_reason ?? undefined}
                                 >
                                   {isExpired(s.end_date) &&
                                   s.status === "active"
                                     ? t("subscriptions.expired")
                                     : t(`subscriptions.${s.status}`)}
                                 </Badge>
-                                {showDiscount(s.discount_percent) && (
+                                {hasDiscount(s) && (
                                   <Badge
                                     variant="default"
                                     className="font-cairo whitespace-nowrap"
                                   >
                                     {t("subscriptions.discount")}{" "}
-                                    {s.discount_percent}%
+                                    {discountLabel(s)}
                                   </Badge>
                                 )}
                               </div>
@@ -526,8 +540,7 @@ export function MemberProfile() {
                                                 ),
                                                 variant: "ghost" as const,
                                                 destructive: true,
-                                                onSelect: () =>
-                                                  setCancelTarget(s),
+                                                onSelect: () => openCancel(s),
                                               },
                                             ]
                                           : []),
@@ -618,6 +631,23 @@ export function MemberProfile() {
               {formatDate(cancelTarget.end_date)}
             </p>
           )}
+          <div className="space-y-2">
+            <Label className="font-cairo">
+              {t("subscriptions.cancelReason")}
+            </Label>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              placeholder={t("subscriptions.cancelReasonPlaceholder")}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-cairo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {!cancelReason.trim() && (
+              <p className="text-xs text-muted-foreground font-cairo">
+                {t("subscriptions.cancelReasonRequired")}
+              </p>
+            )}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -629,7 +659,7 @@ export function MemberProfile() {
             <Button
               variant="destructive"
               onClick={confirmCancel}
-              disabled={cancelMut.isPending}
+              disabled={cancelMut.isPending || !cancelReason.trim()}
               className="font-cairo"
             >
               {t("subscriptions.cancel")}

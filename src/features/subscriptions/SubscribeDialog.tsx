@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { usePlans } from "@/hooks/usePlans";
 import { useCreateSubscription } from "@/hooks/useSubscriptions";
-import { formatMoney, currencySymbol } from "@/lib/format";
+import { formatMoney, currencySymbol, priceToCents } from "@/lib/format";
 import type { Member, PaymentMethod } from "@/lib/ipc";
+import { discountedPriceCents } from "@/lib/subscriptionView";
 import { useAuthStore } from "@/stores/auth";
+import { DiscountEditor, type DiscountKind } from "./DiscountEditor";
 import { PaymentMethodPicker } from "./PaymentMethodField";
 
 interface SubscribeDialogProps {
@@ -36,7 +38,9 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
   const [startDate, setStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
+  const [discountKind, setDiscountKind] = useState<DiscountKind>("percent");
   const [discountPercent, setDiscountPercent] = useState("0");
+  const [discountAmount, setDiscountAmount] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
     "cash",
@@ -52,10 +56,16 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
   }, [activePlans, planId]);
 
   const selectedPlan = activePlans.find((plan) => plan.id === planId);
-  const finalPriceCents = Math.round(
-    ((selectedPlan?.price_cents ?? 0) * (100 - Number(discountPercent || 0))) /
-      100,
+  const discountAmountCents =
+    discountKind === "amount" ? priceToCents(discountAmount || "0") : 0;
+  const finalPriceCents = discountedPriceCents(
+    selectedPlan?.price_cents ?? 0,
+    discountKind === "percent" ? Number(discountPercent || 0) : 0,
+    discountAmountCents,
   );
+  const discountIsSet =
+    (discountKind === "percent" ? Number(discountPercent || 0) : 0) > 0 ||
+    discountAmountCents > 0;
   const paidAmountCents = Math.round(Number(paidAmount || 0) * 100);
   const unpaidAmountCents = Math.max(finalPriceCents - paidAmountCents, 0);
 
@@ -79,7 +89,9 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
         member_id: member.id,
         plan_id: planId,
         start_date: startDate || null,
-        discount_percent: Number(discountPercent),
+        discount_percent:
+          discountKind === "percent" ? Number(discountPercent) : 0,
+        discount_amount_cents: discountAmountCents,
         paid_amount_cents: paidAmountCents,
         payment_method: paymentMethod,
         notes: notes || null,
@@ -148,31 +160,21 @@ export function SubscribeDialog({ member, onClose }: SubscribeDialogProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-cairo">
-              {t("subscriptions.discountPercent")}
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              step="1"
-              value={discountPercent}
-              onChange={(event) => setDiscountPercent(event.target.value)}
-              className="font-cairo"
-            />
-            {planId && (
-              <p className="text-sm text-muted-foreground font-cairo">
-                {t("subscriptions.finalPrice")}: {formatMoney(finalPriceCents)}
-              </p>
-            )}
-            {isStaff && Number(discountPercent) > 0 && (
-              <p className="text-sm text-amber-600 dark:text-amber-400 font-cairo">
-                {t("subscriptions.discountPendingNotice")}
-              </p>
-            )}
-          </div>
-
+          <DiscountEditor
+            kind={discountKind}
+            onKindChange={setDiscountKind}
+            percent={discountPercent}
+            onPercentChange={setDiscountPercent}
+            amount={discountAmount}
+            onAmountChange={setDiscountAmount}
+            planPriceCents={selectedPlan?.price_cents ?? 0}
+            finalPriceCents={finalPriceCents}
+          />
+          {isStaff && discountIsSet && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 font-cairo">
+              {t("subscriptions.discountPendingNotice")}
+            </p>
+          )}
           <div className="space-y-2">
             <Label className="font-cairo">
               {t("subscriptions.paidAmount")}

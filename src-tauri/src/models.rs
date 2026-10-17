@@ -201,6 +201,7 @@ pub struct Subscription {
     pub paid_amount_cents: i64,
     pub unpaid_amount_cents: i64,
     pub discount_percent: i64,
+    pub discount_amount_cents: i64,
     pub is_paid: bool,
     pub payment_method: Option<String>,
     pub discount_requested_by_user_id: Option<i64>,
@@ -208,6 +209,7 @@ pub struct Subscription {
     pub discount_reviewed_by_user_id: Option<i64>,
     pub discount_reviewed_at: Option<String>,
     pub renews_subscription_id: Option<i64>,
+    pub cancellation_reason: Option<String>,
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -221,6 +223,8 @@ pub struct CreateSubscriptionInput {
     #[serde(default)]
     pub created_at: Option<String>,
     pub discount_percent: i64,
+    #[serde(default)]
+    pub discount_amount_cents: Option<i64>,
     pub paid_amount_cents: i64,
     #[serde(default)]
     pub payment_method: Option<String>,
@@ -232,6 +236,8 @@ pub struct RenewSubscriptionInput {
     pub subscription_id: i64,
     pub plan_id: Option<i64>,
     pub discount_percent: i64,
+    #[serde(default)]
+    pub discount_amount_cents: Option<i64>,
     pub paid_amount_cents: i64,
     #[serde(default)]
     pub payment_method: Option<String>,
@@ -245,6 +251,8 @@ pub struct UpdateSubscriptionInput {
     pub start_date: String,
     pub end_date: String,
     pub discount_percent: i64,
+    #[serde(default)]
+    pub discount_amount_cents: Option<i64>,
     pub paid_amount_cents: i64,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub payment_method: Option<Option<String>>,

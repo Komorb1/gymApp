@@ -1,5 +1,5 @@
 import type { MemberReport, MemberSnapshot, Plan, Subscription } from "./ipc";
-import { formatDate, fullName, isExpired } from "./format";
+import { formatDate, formatMoney, fullName, isExpired } from "./format";
 
 export type OperationalSubscriptionGroups = {
   active: Subscription[];
@@ -80,8 +80,25 @@ export function groupOperationalSubscriptions(
   return groups;
 }
 
-export function showDiscount(discountPercent: number): boolean {
-  return discountPercent > 0;
+export type MembershipDiscount = {
+  discount_percent: number;
+  discount_amount_cents: number;
+};
+
+export function hasDiscount(subscription: MembershipDiscount): boolean {
+  return (
+    subscription.discount_percent > 0 || subscription.discount_amount_cents > 0
+  );
+}
+
+export function discountLabel(subscription: MembershipDiscount): string {
+  if (subscription.discount_percent > 0) {
+    return `${subscription.discount_percent}%`;
+  }
+  if (subscription.discount_amount_cents > 0) {
+    return formatMoney(subscription.discount_amount_cents);
+  }
+  return "";
 }
 
 export function membershipMember(subscription: Subscription): MemberSnapshot {
@@ -105,8 +122,10 @@ export function membershipPlanPriceCents(
 export function discountedPriceCents(
   priceCents: number,
   discountPercent: number,
+  discountAmountCents = 0,
 ): number {
-  return Math.round((priceCents * (100 - discountPercent)) / 100);
+  const afterPercent = Math.round((priceCents * (100 - discountPercent)) / 100);
+  return Math.max(0, Math.min(priceCents, afterPercent - discountAmountCents));
 }
 
 export function canReviewDiscount(subscription: Subscription): boolean {

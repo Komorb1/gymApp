@@ -117,6 +117,7 @@
       "price_cents": "سعر الباقة",
       "paid_amount_cents": "المبلغ المدفوع",
       "discount_percent": "نسبة الخصم",
+      "discount_amount_cents": "مبلغ الخصم",
       "is_paid": "حالة الدفع",
       "payment_method": "طريقة الدفع",
       "is_active": "نشط",
@@ -130,6 +131,7 @@
       "gym_address": "عنوان النادي",
       "gym_phone": "هاتف النادي",
       "discount_approval_status": "اعتماد الخصم",
+      "cancellation_reason": "سبب الإلغاء",
       "backup": "ملف النسخة",
       "members": "الأعضاء",
       "memberships": "العضويات"
@@ -206,7 +208,8 @@
     "memberId": "معرف العضو",
     "phone": "رقم الهاتف (واتساب)",
     "phoneIsWhatsapp": "سيستخدم هذا الرقم للتواصل عبر واتساب.",
-    "phoneDigitsOnly": "رقم الهاتف يجب أن يحتوي على أرقام فقط.",
+    "phoneFormat": "يجب أن يكون رقم الهاتف 8 أرقام بعد 9715+",
+    "phoneLegacyKept": "محفوظ بالصيغة {{phone}} — أدخل 8 أرقام لاستبداله",
     "phoneTaken": "رقم الواتساب هذا مسجل بالفعل لعضو آخر.",
     "whatsappNo": "رقم واتساب",
     "email": "البريد الإلكتروني",
@@ -261,8 +264,7 @@
     "paymentMethod": "طريقة الدفع",
     "paymentMethods": {
       "cash": "نقدا",
-      "bankTransfer": "تحويل بنكي",
-      "unset": "غير محدد"
+      "bankTransfer": "تحويل بنكي"
     },
     "paidAmount": "المبلغ المدفوع",
     "planPrice": "سعر الباقة",
@@ -273,7 +275,13 @@
     "invalidPaidAmount": "يجب أن يكون المبلغ المدفوع بين صفر والسعر النهائي",
     "alreadyActive": "لدى هذا العضو عضوية نشطة بالفعل",
     "discount": "الخصم",
+    "discountKind": "نوع الخصم",
+    "discountKinds": {
+      "percent": "نسبة مئوية",
+      "amount": "مبلغ ثابت"
+    },
     "discountPercent": "نسبة الخصم (%)",
+    "discountAmount": "مبلغ الخصم",
     "finalPrice": "السعر بعد الخصم",
     "notes": "ملاحظات العضوية",
     "editMembership": "تعديل العضوية",
@@ -288,6 +296,9 @@
     "subscribeMember": "عضوية جديدة",
     "noActiveSubs": "لا توجد عضويات نشطة",
     "cancelConfirm": "إلغاء هذه العضوية؟",
+    "cancelReason": "سبب الإلغاء",
+    "cancelReasonPlaceholder": "ما سبب إلغاء هذه العضوية؟",
+    "cancelReasonRequired": "اكتب سبب الإلغاء قبل إتمام العملية",
     "renewConfirm": "تجديد هذه العضوية؟ ستبدأ العضوية الجديدة في {{date}} وتبقى العضوية الحالية فعالة حتى انتهائها.",
     "renewConfirmExpired": "تجديد هذه العضوية؟ هذه العضوية منتهية، لذا ستبدأ العضوية الجديدة من اليوم.",
     "approveDiscount": "اعتماد الخصم",

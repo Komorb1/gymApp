@@ -36,6 +36,7 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
             - row.get::<_, i64>("paid_amount_cents")?)
         .max(0),
         discount_percent: row.get("discount_percent")?,
+        discount_amount_cents: row.get("discount_amount_cents")?,
         is_paid: row.get("is_paid")?,
         payment_method: row.get("payment_method")?,
         discount_requested_by_user_id: row.get("discount_requested_by_user_id")?,
@@ -43,6 +44,7 @@ pub(crate) fn row_to_subscription(row: &rusqlite::Row) -> rusqlite::Result<Subsc
         discount_reviewed_by_user_id: row.get("discount_reviewed_by_user_id")?,
         discount_reviewed_at: row.get("discount_reviewed_at")?,
         renews_subscription_id: row.get("renews_subscription_id")?,
+        cancellation_reason: row.get("cancellation_reason")?,
         notes: row.get("notes")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -242,13 +244,41 @@ fn membership_created_at(
     ))
 }
 
-fn discounted_price_cents(price_cents: i64, discount_percent: i64) -> AppResult<i64> {
-    if !(0..=100).contains(&discount_percent) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Discount {
+    percent: i64,
+    amount_cents: i64,
+}
+
+impl Discount {
+    fn is_set(&self) -> bool {
+        self.percent > 0 || self.amount_cents > 0
+    }
+}
+
+fn validate_discount(discount: Discount) -> AppResult<()> {
+    if !(0..=100).contains(&discount.percent) {
         return Err(AppError::Validation(
             "Discount percentage must be between 0 and 100".into(),
         ));
     }
-    Ok((price_cents * (100 - discount_percent) + 50) / 100)
+    if discount.amount_cents < 0 {
+        return Err(AppError::Validation(
+            "Discount amount must not be negative".into(),
+        ));
+    }
+    if discount.percent > 0 && discount.amount_cents > 0 {
+        return Err(AppError::Validation(
+            "Use either a percentage discount or a flat amount, not both".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn discounted_price_cents(price_cents: i64, discount: Discount) -> AppResult<i64> {
+    validate_discount(discount)?;
+    let after_percent = (price_cents * (100 - discount.percent) + 50) / 100;
+    Ok((after_percent - discount.amount_cents).clamp(0, price_cents.max(0)))
 }
 
 fn validate_paid_amount(final_price_cents: i64, paid_amount_cents: i64) -> AppResult<()> {
@@ -313,8 +343,8 @@ fn ensure_membership_can_freeze(before: &Subscription, today: chrono::NaiveDate)
     Ok(())
 }
 
-fn membership_creation_status(access_level: &str, discount_percent: i64) -> &'static str {
-    if access_level == "staff" && discount_percent > 0 {
+fn membership_creation_status(access_level: &str, discount: Discount) -> &'static str {
+    if access_level == "staff" && discount.is_set() {
         "pending"
     } else {
         "active"
@@ -333,20 +363,20 @@ fn edited_membership_status(
     before_status: &str,
     approval_status: Option<&str>,
     access_level: &str,
-    previous_discount: i64,
-    new_discount: i64,
+    previous: Discount,
+    new: Discount,
 ) -> &'static str {
     if before_status == "cancelled" {
         return "cancelled";
     }
-    if new_discount == 0 {
+    if !new.is_set() {
         return if before_status == "frozen" {
             "frozen"
         } else {
             "active"
         };
     }
-    let discount_changed = new_discount != previous_discount;
+    let discount_changed = new != previous;
     if approval_status == Some("pending") || before_status == "pending" {
         return "pending";
     }
@@ -402,11 +432,12 @@ fn user_access_level(conn: &rusqlite::Connection, user_id: i64) -> AppResult<Str
 mod tests {
     use super::{
         apply_discount_review, attach_current_members, can_review_discount_request,
-        clean_payment_method, create_membership, discounted_price_cents, edited_membership_status,
-        ensure_membership_can_freeze, ensure_membership_dates_are_valid,
+        cancel_membership, clean_payment_method, create_membership, discounted_price_cents,
+        edited_membership_status, ensure_membership_can_freeze, ensure_membership_dates_are_valid,
         ensure_no_current_membership, expired_overdue_count, membership_created_at,
         membership_creation_status, renew_membership, resolve_payment_method,
         reviewed_membership_status, row_to_subscription, update_membership, validate_paid_amount,
+        Discount,
     };
     use crate::db::migrations;
     use crate::models::{
@@ -419,6 +450,27 @@ mod tests {
 
     fn date(year: i32, month: u32, day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
+    }
+
+    fn percent(percent: i64) -> Discount {
+        Discount {
+            percent,
+            amount_cents: 0,
+        }
+    }
+
+    fn flat(amount_cents: i64) -> Discount {
+        Discount {
+            percent: 0,
+            amount_cents,
+        }
+    }
+
+    fn no_discount() -> Discount {
+        Discount {
+            percent: 0,
+            amount_cents: 0,
+        }
     }
 
     #[test]
@@ -476,7 +528,10 @@ mod tests {
         assert_eq!(snapshot_price, 5000);
         assert_eq!(final_price, 5000);
         assert_eq!(paid_amount, 2500);
-        assert_eq!(discounted_price_cents(snapshot_price, 10).unwrap(), 4500);
+        assert_eq!(
+            discounted_price_cents(snapshot_price, percent(10)).unwrap(),
+            4500
+        );
     }
 
     #[test]
@@ -590,21 +645,42 @@ mod tests {
 
     #[test]
     fn discount_percentage_calculates_rounded_final_price() {
-        assert_eq!(discounted_price_cents(3_255, 15).unwrap(), 2_767);
-        assert_eq!(discounted_price_cents(5_000, 100).unwrap(), 0);
+        assert_eq!(discounted_price_cents(3_255, percent(15)).unwrap(), 2_767);
+        assert_eq!(discounted_price_cents(5_000, percent(100)).unwrap(), 0);
     }
 
     #[test]
-    fn discount_percentage_must_be_between_zero_and_one_hundred() {
-        assert!(discounted_price_cents(5_000, -1).is_err());
-        assert!(discounted_price_cents(5_000, 101).is_err());
+    fn a_flat_discount_comes_off_the_price_without_going_negative() {
+        assert_eq!(discounted_price_cents(5_000, flat(2_000)).unwrap(), 3_000);
+        assert_eq!(discounted_price_cents(5_000, flat(5_000)).unwrap(), 0);
+        assert_eq!(discounted_price_cents(5_000, flat(9_000)).unwrap(), 0);
+        assert_eq!(discounted_price_cents(5_000, no_discount()).unwrap(), 5_000);
+    }
+
+    #[test]
+    fn discount_input_is_validated() {
+        assert!(discounted_price_cents(5_000, percent(-1)).is_err());
+        assert!(discounted_price_cents(5_000, percent(101)).is_err());
+        assert!(discounted_price_cents(5_000, flat(-1)).is_err());
+        assert!(discounted_price_cents(
+            5_000,
+            Discount {
+                percent: 10,
+                amount_cents: 500
+            }
+        )
+        .is_err());
     }
 
     #[test]
     fn staff_discount_requires_management_approval() {
-        assert_eq!(membership_creation_status("staff", 10), "pending");
-        assert_eq!(membership_creation_status("staff", 0), "active");
-        assert_eq!(membership_creation_status("management", 10), "active");
+        assert_eq!(membership_creation_status("staff", percent(10)), "pending");
+        assert_eq!(membership_creation_status("staff", flat(1_000)), "pending");
+        assert_eq!(membership_creation_status("staff", no_discount()), "active");
+        assert_eq!(
+            membership_creation_status("management", percent(10)),
+            "active"
+        );
     }
 
     #[test]
@@ -616,27 +692,87 @@ mod tests {
     #[test]
     fn membership_edits_preserve_reviewed_discount_states() {
         assert_eq!(
-            edited_membership_status("rejected", Some("rejected"), "staff", 10, 10),
+            edited_membership_status(
+                "rejected",
+                Some("rejected"),
+                "staff",
+                percent(10),
+                percent(10)
+            ),
             "rejected"
         );
         assert_eq!(
-            edited_membership_status("pending", Some("pending"), "management", 10, 10),
+            edited_membership_status(
+                "pending",
+                Some("pending"),
+                "management",
+                percent(10),
+                percent(10)
+            ),
             "pending"
         );
         assert_eq!(
-            edited_membership_status("pending", Some("pending"), "management", 10, 15),
+            edited_membership_status(
+                "pending",
+                Some("pending"),
+                "management",
+                percent(10),
+                percent(15)
+            ),
             "pending"
         );
         assert_eq!(
-            edited_membership_status("cancelled", Some("pending"), "management", 10, 10),
+            edited_membership_status(
+                "cancelled",
+                Some("pending"),
+                "management",
+                percent(10),
+                percent(10)
+            ),
             "cancelled"
+        );
+        assert_eq!(
+            edited_membership_status(
+                "rejected",
+                Some("rejected"),
+                "staff",
+                flat(1_000),
+                flat(1_500)
+            ),
+            "pending"
+        );
+        assert_eq!(
+            edited_membership_status(
+                "active",
+                Some("approved"),
+                "staff",
+                flat(1_000),
+                no_discount()
+            ),
+            "active"
         );
     }
 
     #[test]
     fn staff_can_resubmit_changed_rejected_discount() {
         assert_eq!(
-            edited_membership_status("rejected", Some("rejected"), "staff", 10, 15),
+            edited_membership_status(
+                "rejected",
+                Some("rejected"),
+                "staff",
+                percent(10),
+                percent(15)
+            ),
+            "pending"
+        );
+        assert_eq!(
+            edited_membership_status(
+                "rejected",
+                Some("rejected"),
+                "staff",
+                percent(10),
+                flat(1_000)
+            ),
             "pending"
         );
     }
@@ -810,6 +946,7 @@ mod tests {
             paid_amount_cents: 5000,
             unpaid_amount_cents: 0,
             discount_percent: 0,
+            discount_amount_cents: 0,
             is_paid: true,
             payment_method: None,
             discount_requested_by_user_id: None,
@@ -817,6 +954,7 @@ mod tests {
             discount_reviewed_by_user_id: None,
             discount_reviewed_at: None,
             renews_subscription_id: None,
+            cancellation_reason: None,
             notes: None,
             created_at: "2026-01-01T00:00:00Z".into(),
             updated_at: "2026-01-01T00:00:00Z".into(),
@@ -896,6 +1034,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: None,
                 notes: None,
@@ -930,6 +1069,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: None,
                 notes: None,
@@ -962,6 +1102,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: None,
                 notes: None,
@@ -993,6 +1134,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: Some("bank_transfer".into()),
                 notes: None,
@@ -1029,6 +1171,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: None,
                 notes: None,
@@ -1060,6 +1203,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: Some("cheque".into()),
                 notes: None,
@@ -1168,6 +1312,7 @@ mod tests {
                 start_date: Some("2026-01-01".into()),
                 created_at: None,
                 discount_percent: 0,
+                discount_amount_cents: None,
                 paid_amount_cents: 5000,
                 payment_method: Some("cash".into()),
                 notes: None,
@@ -1204,6 +1349,7 @@ mod tests {
             start_date: "2026-01-01".into(),
             end_date: "2026-03-01".into(),
             discount_percent: 0,
+            discount_amount_cents: None,
             paid_amount_cents: 5000,
             payment_method,
             notes: None,
@@ -1245,6 +1391,7 @@ mod tests {
                 subscription_id: previous_id,
                 plan_id: None,
                 discount_percent: 10,
+                discount_amount_cents: None,
                 paid_amount_cents: 4500,
                 payment_method: None,
                 notes: None,
@@ -1258,6 +1405,189 @@ mod tests {
 
         assert_eq!(approved.status, "active");
         assert_eq!(membership_status(&conn, previous_id), "active");
+    }
+
+    #[test]
+    fn creating_a_membership_with_a_flat_discount_stores_it_as_the_final_price() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+
+        let created = create_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            CreateSubscriptionInput {
+                member_id: 1,
+                plan_id: 1,
+                start_date: Some("2026-01-01".into()),
+                created_at: None,
+                discount_percent: 0,
+                discount_amount_cents: Some(1_500),
+                paid_amount_cents: 3_500,
+                payment_method: Some("cash".into()),
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(created.discount_percent, 0);
+        assert_eq!(created.discount_amount_cents, 1_500);
+        assert_eq!(created.final_price_cents, 3_500);
+        assert!(created.is_paid);
+    }
+
+    #[test]
+    fn a_staff_flat_discount_waits_for_management_approval() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let staff = insert_user(&conn, "staff", "staff");
+        let token = sessions.issue(staff).unwrap();
+        insert_member_and_plan(&conn);
+
+        let created = create_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            CreateSubscriptionInput {
+                member_id: 1,
+                plan_id: 1,
+                start_date: Some("2026-01-01".into()),
+                created_at: None,
+                discount_percent: 0,
+                discount_amount_cents: Some(500),
+                paid_amount_cents: 4_500,
+                payment_method: Some("cash".into()),
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(created.status, "pending");
+        assert_eq!(created.discount_approval_status.as_deref(), Some("pending"));
+        assert_eq!(created.discount_requested_by_user_id, Some(staff));
+    }
+
+    #[test]
+    fn editing_a_membership_switches_between_the_two_discount_kinds() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let id = insert_active_membership(&conn, "2027-01-01");
+
+        let edit = |percent: i64, amount_cents: Option<i64>, paid_amount_cents: i64| {
+            UpdateSubscriptionInput {
+                subscription_id: id,
+                plan_id: 1,
+                start_date: "2026-01-01".into(),
+                end_date: "2027-01-01".into(),
+                discount_percent: percent,
+                discount_amount_cents: amount_cents,
+                paid_amount_cents,
+                payment_method: None,
+                notes: None,
+            }
+        };
+
+        let flat =
+            update_membership(&mut conn, &sessions, &token, edit(0, Some(1_000), 4_000)).unwrap();
+        assert_eq!(flat.discount_percent, 0);
+        assert_eq!(flat.discount_amount_cents, 1_000);
+        assert_eq!(flat.final_price_cents, 4_000);
+
+        let percent =
+            update_membership(&mut conn, &sessions, &token, edit(10, Some(0), 4_500)).unwrap();
+        assert_eq!(percent.discount_percent, 10);
+        assert_eq!(percent.discount_amount_cents, 0);
+        assert_eq!(percent.final_price_cents, 4_500);
+
+        let cleared =
+            update_membership(&mut conn, &sessions, &token, edit(0, Some(0), 5_000)).unwrap();
+        assert_eq!(cleared.discount_percent, 0);
+        assert_eq!(cleared.discount_amount_cents, 0);
+        assert_eq!(cleared.final_price_cents, 5_000);
+    }
+
+    #[test]
+    fn renewal_carries_a_flat_discount_forward() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let today = Utc::now().date_naive();
+        let previous_id = insert_active_membership(
+            &conn,
+            &(today + Duration::days(25)).format("%Y-%m-%d").to_string(),
+        );
+        conn.execute(
+            "UPDATE subscriptions SET discount_amount_cents = 1500, final_price_cents = 3500 WHERE id = ?1",
+            rusqlite::params![previous_id],
+        )
+        .unwrap();
+
+        let renewed = renew_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            RenewSubscriptionInput {
+                subscription_id: previous_id,
+                plan_id: None,
+                discount_percent: 0,
+                discount_amount_cents: None,
+                paid_amount_cents: 3_500,
+                payment_method: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(renewed.discount_amount_cents, 1_500);
+        assert_eq!(renewed.final_price_cents, 3_500);
+    }
+
+    #[test]
+    fn cancelling_a_membership_requires_a_reason() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let id = insert_active_membership(&conn, "2027-01-01");
+
+        assert!(cancel_membership(&mut conn, &sessions, &token, id, "").is_err());
+        assert!(cancel_membership(&mut conn, &sessions, &token, id, "   ").is_err());
+        assert_eq!(membership_status(&conn, id), "active");
+    }
+
+    #[test]
+    fn cancelling_a_membership_stores_the_trimmed_reason() {
+        let mut conn = setup_conn();
+        let sessions = Sessions::new();
+        let manager = insert_user(&conn, "manager", "management");
+        let token = sessions.issue(manager).unwrap();
+        insert_member_and_plan(&conn);
+        let id = insert_active_membership(&conn, "2027-01-01");
+
+        let cancelled = cancel_membership(
+            &mut conn,
+            &sessions,
+            &token,
+            id,
+            "  Member moved to another city  ",
+        )
+        .unwrap();
+
+        assert_eq!(cancelled.status, "cancelled");
+        assert_eq!(
+            cancelled.cancellation_reason.as_deref(),
+            Some("Member moved to another city")
+        );
+        assert_eq!(membership_status(&conn, id), "cancelled");
     }
 
     #[test]
@@ -1342,14 +1672,18 @@ fn create_membership(
         let access_level = user_access_level(&transaction, actor_id)?;
         let member = member_snapshot(&transaction, input.member_id)?;
         let plan = plan_snapshot(&transaction, input.plan_id, true)?;
-        let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        let discount = Discount {
+            percent: input.discount_percent,
+            amount_cents: input.discount_amount_cents.unwrap_or(0),
+        };
+        let final_price_cents = discounted_price_cents(plan.price_cents, discount)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let payment_method = clean_payment_method(input.payment_method)?;
         let now = chrono::Utc::now();
         let today = now.format("%Y-%m-%d").to_string();
         let created_at = membership_created_at(input.created_at, now)?;
         ensure_no_current_membership(&transaction, input.member_id, None, None, &today)?;
-        let status = membership_creation_status(&access_level, input.discount_percent);
+        let status = membership_creation_status(&access_level, discount);
         let discount_requester = (status == "pending").then_some(actor_id);
         let start_date = match input.start_date {
             Some(value) => parse_date(&value, "start date")?,
@@ -1364,8 +1698,8 @@ fn create_membership(
                 start_date, end_date, status, final_price_cents, paid_amount_cents,
                 discount_percent, is_paid,
                 discount_requested_by_user_id, discount_approval_status, notes, created_at,
-                payment_method
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                payment_method, discount_amount_cents
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             rusqlite::params![
                 input.member_id,
                 input.plan_id,
@@ -1376,13 +1710,14 @@ fn create_membership(
                 status,
                 final_price_cents,
                 input.paid_amount_cents,
-                input.discount_percent,
+                discount.percent,
                 input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_requester.map(|_| "pending"),
                 clean_notes(input.notes),
                 created_at,
                 payment_method,
+                discount.amount_cents,
             ],
         )?;
         let new_id = transaction.last_insert_rowid();
@@ -1426,13 +1761,19 @@ fn renew_membership(
         let member = member_snapshot(&transaction, before.member_id)?;
         let plan_id = input.plan_id.unwrap_or(before.plan_id);
         let plan = plan_snapshot(&transaction, plan_id, true)?;
-        let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        let discount = Discount {
+            percent: input.discount_percent,
+            amount_cents: input
+                .discount_amount_cents
+                .unwrap_or(before.discount_amount_cents),
+        };
+        let final_price_cents = discounted_price_cents(plan.price_cents, discount)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let payment_method = match clean_payment_method(input.payment_method)? {
             Some(method) => Some(method),
             None => before.payment_method.clone(),
         };
-        let status = membership_creation_status(&access_level, input.discount_percent);
+        let status = membership_creation_status(&access_level, discount);
         let discount_requester = (status == "pending").then_some(actor_id);
         let today = chrono::Utc::now().date_naive();
         ensure_no_current_membership(
@@ -1453,8 +1794,8 @@ fn renew_membership(
                 start_date, end_date, status, final_price_cents, paid_amount_cents,
                 discount_percent, is_paid,
                 discount_requested_by_user_id, discount_approval_status, renews_subscription_id, notes,
-                payment_method
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                payment_method, discount_amount_cents
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             rusqlite::params![
                 before.member_id,
                 plan_id,
@@ -1465,13 +1806,14 @@ fn renew_membership(
                 status,
                 final_price_cents,
                 input.paid_amount_cents,
-                input.discount_percent,
+                discount.percent,
                 input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_requester.map(|_| "pending"),
                 input.subscription_id,
                 clean_notes(input.notes),
                 payment_method,
+                discount.amount_cents,
             ],
         )?;
         let new_id = transaction.last_insert_rowid();
@@ -1624,22 +1966,32 @@ fn update_membership(
         parse_date(&input.start_date, "start date")?;
         parse_date(&input.end_date, "end date")?;
         ensure_membership_dates_are_valid(&input.start_date, &input.end_date)?;
-        let final_price_cents = discounted_price_cents(plan.price_cents, input.discount_percent)?;
+        let previous_discount = Discount {
+            percent: before.discount_percent,
+            amount_cents: before.discount_amount_cents,
+        };
+        let discount = Discount {
+            percent: input.discount_percent,
+            amount_cents: input
+                .discount_amount_cents
+                .unwrap_or(before.discount_amount_cents),
+        };
+        let final_price_cents = discounted_price_cents(plan.price_cents, discount)?;
         validate_paid_amount(final_price_cents, input.paid_amount_cents)?;
         let payment_method =
             resolve_payment_method(input.payment_method, before.payment_method.clone())?;
-        let discount_changed = input.discount_percent != before.discount_percent;
+        let discount_changed = discount != previous_discount;
         let status = edited_membership_status(
             &before.status,
             before.discount_approval_status.as_deref(),
             &access_level,
-            before.discount_percent,
-            input.discount_percent,
+            previous_discount,
+            discount,
         );
         let creates_staff_request =
             status == "pending" && access_level == "staff" && discount_changed;
         let management_approved_discount = access_level == "management"
-            && input.discount_percent > 0
+            && discount.is_set()
             && discount_changed
             && status != "pending";
         if matches!(status, "active" | "frozen") {
@@ -1653,12 +2005,12 @@ fn update_membership(
         }
         let discount_requester = if creates_staff_request {
             Some(actor_id)
-        } else if input.discount_percent == 0 {
+        } else if !discount.is_set() {
             None
         } else {
             before.discount_requested_by_user_id
         };
-        let discount_approval_status = if input.discount_percent == 0 {
+        let discount_approval_status = if !discount.is_set() {
             None
         } else if status == "pending" {
             Some("pending")
@@ -1667,7 +2019,7 @@ fn update_membership(
         } else {
             before.discount_approval_status.as_deref()
         };
-        let discount_reviewer = if status == "pending" || input.discount_percent == 0 {
+        let discount_reviewer = if status == "pending" || !discount.is_set() {
             None
         } else if management_approved_discount {
             Some(actor_id)
@@ -1696,8 +2048,9 @@ fn update_membership(
                 END,
                 notes = ?14,
                 payment_method = ?15,
+                discount_amount_cents = ?16,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?16",
+             WHERE id = ?17",
             rusqlite::params![
                 input.plan_id,
                 plan_json,
@@ -1706,7 +2059,7 @@ fn update_membership(
                 status,
                 final_price_cents,
                 input.paid_amount_cents,
-                input.discount_percent,
+                discount.percent,
                 input.paid_amount_cents == final_price_cents,
                 discount_requester,
                 discount_approval_status,
@@ -1714,6 +2067,7 @@ fn update_membership(
                 management_approved_discount,
                 clean_notes(input.notes),
                 payment_method,
+                discount.amount_cents,
                 input.subscription_id,
             ],
         )?;
@@ -1883,16 +2237,22 @@ pub async fn get_dashboard_stats(
     })
 }
 
-#[tauri::command]
-pub async fn cancel_subscription(
-    db: State<'_, Db>,
-    sessions: State<'_, Sessions>,
-    session_token: String,
+fn cancel_membership(
+    conn: &mut rusqlite::Connection,
+    sessions: &Sessions,
+    session_token: &str,
     subscription_id: i64,
+    reason: &str,
 ) -> AppResult<Subscription> {
-    db.with_conn(|conn| {
+    let cancellation_reason = reason.trim().to_string();
+    if cancellation_reason.is_empty() {
+        return Err(AppError::Validation(
+            "A reason is required to cancel a membership".into(),
+        ));
+    }
+    {
         let transaction = conn.transaction()?;
-        let actor_id = require_management(&transaction, &sessions, &session_token)?;
+        let actor_id = require_management(&transaction, sessions, session_token)?;
         let before = subscription_by_id(&transaction, subscription_id)?;
         if before.status == "cancelled" {
             return Err(AppError::Conflict("Membership is already cancelled".into()));
@@ -1900,11 +2260,12 @@ pub async fn cancel_subscription(
         transaction.execute(
             "UPDATE subscriptions SET
                 status = 'cancelled',
+                cancellation_reason = ?1,
                 frozen_at = NULL,
                 frozen_until = NULL,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?1",
-            rusqlite::params![subscription_id],
+             WHERE id = ?2",
+            rusqlite::params![cancellation_reason, subscription_id],
         )?;
         let subscription = subscription_by_id(&transaction, subscription_id)?;
         let before_json = serde_json::to_string(&before)?;
@@ -1920,5 +2281,18 @@ pub async fn cancel_subscription(
         )?;
         transaction.commit()?;
         Ok(subscription)
+    }
+}
+
+#[tauri::command]
+pub async fn cancel_subscription(
+    db: State<'_, Db>,
+    sessions: State<'_, Sessions>,
+    session_token: String,
+    subscription_id: i64,
+    reason: String,
+) -> AppResult<Subscription> {
+    db.with_conn(|conn| {
+        cancel_membership(conn, &sessions, &session_token, subscription_id, &reason)
     })
 }

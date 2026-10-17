@@ -47,7 +47,14 @@ export function formatDateTime(iso: string | null): string {
   try {
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return iso;
-    return date.toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+    return date.toLocaleString([], {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   } catch {
     return iso;
   }

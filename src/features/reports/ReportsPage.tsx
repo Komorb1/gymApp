@@ -6,16 +6,23 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDate, formatMoney, fullName, isExpired } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  fullName,
+  isExpired,
+} from "@/lib/format";
 import {
   listMemberReports,
   type MemberReport,
   type Subscription,
 } from "@/lib/ipc";
 import {
+  discountLabel,
   filterMemberReports,
   filterReportSubscriptions,
-  showDiscount,
+  hasDiscount,
   type ReportMemberFilter,
   type ReportPaymentFilter,
   type ReportSubscriptionStatusFilter,
@@ -225,10 +232,10 @@ export function ReportsPage() {
                           {formatMoney(subscription.paid_amount_cents)} /{" "}
                           {formatMoney(subscription.final_price_cents)}
                         </span>
-                        {showDiscount(subscription.discount_percent) && (
+                        {hasDiscount(subscription) && (
                           <Badge variant="secondary" className="font-cairo">
                             {t("subscriptions.discount")}{" "}
-                            {subscription.discount_percent}%
+                            {discountLabel(subscription)}
                           </Badge>
                         )}
                       </div>
@@ -336,7 +343,7 @@ export function ReportsPage() {
                     {report.member.phone}
                   </td>
                   <td className="p-3 text-muted-foreground font-cairo whitespace-nowrap">
-                    {formatDate(report.member.created_at)}
+                    {formatDateTime(report.member.created_at)}
                   </td>
                   <td className="p-3">
                     <Badge

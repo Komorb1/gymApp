@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { fullName, paymentStatus, priceToCents } from "./format";
+import {
+  formatDateTime,
+  fullName,
+  paymentStatus,
+  priceToCents,
+} from "./format";
 
 describe("membership formatting", () => {
   it("uses optional middle names without adding empty spacing", () => {
@@ -25,5 +30,15 @@ describe("membership formatting", () => {
     expect(paymentStatus(0, 5000)).toBe("unpaid");
     expect(paymentStatus(2500, 5000)).toBe("partial");
     expect(paymentStatus(5000, 5000)).toBe("paid");
+  });
+
+  it("always shows the time of day with an AM/PM marker", () => {
+    expect(formatDateTime("2026-10-10T15:48:00Z")).toMatch(/(AM|PM|ص|م)/);
+    expect(formatDateTime("2026-10-10T15:48:00Z")).not.toMatch(/15:/);
+  });
+
+  it("keeps an unreadable timestamp instead of inventing one", () => {
+    expect(formatDateTime(null)).toBe("—");
+    expect(formatDateTime("not a date")).toBe("not a date");
   });
 });
